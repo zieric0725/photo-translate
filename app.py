@@ -1,15 +1,10 @@
-import easyocr
-
-# 建立 OCR reader（只要初始化一次）
-reader = easyocr.Reader(['en'])
-
 from flask import Flask, request, render_template_string
 from openai import OpenAI
-import pytesseract
-from PIL import Image
 import os
+import base64
+from PIL import Image
 
-# 支援 HEIC（iPhone）
+# 支援 iPhone HEIC
 from pillow_heif import register_heif_opener
 register_heif_opener()
 
@@ -35,6 +30,51 @@ HTML = """
 {% endif %}
 """
 
+@app.route("/", methods=["GET", "POST"])
+def upload_file():
+    result = None
+
+    if request.method == "POST":
+        file = request.files["file"]
+
+        if file:
+            filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+            file.save(filepath)
+
+            # 讀圖片並轉 base64
+            with open(filepath, "rb") as f:
+                image_data = f.read()
+
+            base64_image = base64.b64encode(image_data).decode("utf-8")
+
+            # 🔥 直接用 OpenAI Vision（取代 OCR）
+            response = client.responses.create(
+                model="gpt-4.1",
+                input=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "請讀取圖片中的英文內容，修正錯誤並翻譯成繁體中文，保持條列與排版"
+                            },
+                            {
+                                "type": "input_image",
+                                "image_base64": base64_image
+                            }
+                        ]
+                    }
+                ]
+            )
+
+            result = response.output[0].content[0].text
+
+    return render_template_string(HTML, result=result)
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
 @app.route("/", methods=["GET", "POST"])
 def upload_file():
     result = None
