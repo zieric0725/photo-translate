@@ -3,6 +3,8 @@ from openai import OpenAI
 import os
 import base64
 import mimetypes
+import io
+from PIL import Image
 
 # 支援 iPhone HEIC
 from pillow_heif import register_heif_opener
@@ -14,13 +16,12 @@ client = OpenAI()
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# 這裡是針對手機版優化的 HTML/CSS，解決了縮小問題
+# 手機版優化介面 (包含 viewport 修正與大字體)
 HTML = """
 <!doctype html>
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<!-- 這行是解決手機縮小問題的關鍵 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Photo Translate</title>
 <style>
@@ -32,7 +33,7 @@ body {
 }
 
 h2 {
-    font-size: 32px; /* 標題文字加大 */
+    font-size: 32px;
     margin-bottom: 20px;
     text-align: center;
 }
@@ -48,7 +49,6 @@ form {
     margin-bottom: 28px;
 }
 
-/* 檔案選擇器美化 */
 input[type="file"] {
     font-size: 18px;
     padding: 12px;
@@ -57,7 +57,6 @@ input[type="file"] {
     background: white;
 }
 
-/* 上傳按鈕：寬度 100% 方便拇指點擊 */
 input[type="submit"] {
     font-size: 24px;
     padding: 18px;
@@ -70,7 +69,6 @@ input[type="submit"] {
     -webkit-appearance: none;
 }
 
-/* 翻譯內容字體加大 */
 pre {
     font-size: 22px;
     line-height: 1.8;
@@ -106,21 +104,21 @@ img {
 function showLoading() {
     document.getElementById("loading").style.display = "block";
     document.getElementById("submit-btn").disabled = true;
-    document.getElementById("submit-btn").value = "翻譯處理中...";
+    document.getElementById("submit-btn").value = "加速處理中...";
 }
 </script>
 </head>
 
 <body>
-<h2>📸 上傳照片翻譯</h2>
+<h2>📸 快速照片翻譯</h2>
 
 <form method=post enctype=multipart/form-data onsubmit="showLoading()">
   <input type=file name=file accept="image/*" required>
-  <input type=submit id="submit-btn" value="開始上傳">
+  <input type=submit id="submit-btn" value="開始翻譯">
 </form>
 
 <p id="loading" class="loading" style="display:none;">
-⏳ 翻譯中，請稍候...
+🚀 正在極速翻譯，請稍候...
 </p>
 
 {% if image %}
@@ -151,38 +149,35 @@ def upload_file():
         file = request.files["file"]
 
         if file:
-            filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-            file.save(filepath)
-
-            with open(filepath, "rb") as f:
-                image_data = f.read()
-
-            base64_image = base64.b64encode(image_data).decode("utf-8")
-
-            mime_type, _ = mimetypes.guess_type(filepath)
-            if mime_type is None:
-                mime_type = "image/jpeg"
-
-            image_data_url = f"data:{mime_type};base64,{base64_image}"
-
             try:
-                # 維持你原本的寫法與模型名稱
+                # --- 加速處理 1: 縮小圖片尺寸與品質 ---
+                img = Image.open(file)
+                
+                # 如果寬度超過 1200px 則縮放，減少 API 傳輸負擔
+                if img.width > 1200:
+                    new_height = int(img.height * (1200 / img.width))
+                    img = img.resize((1200, new_height), Image.Resampling.LANCZOS)
+                
+                # 轉成 RGB 並轉為 JPEG Byte 流
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+                
+                buffered = io.BytesIO()
+                img.save(buffered, format="JPEG", quality=85)
+                base64_image = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                
+                image_data_url = f"data:image/jpeg;base64,{base64_image}"
+
+                # --- 加速處理 2: 使用快速模型 gpt-4o-mini ---
                 response = client.responses.create(
-                    model="gpt-4.1",
+                    model="gpt-4o-mini", # 切換為 mini 模型，速度最快
                     input=[
                         {
                             "role": "user",
                             "content": [
                                 {
                                     "type": "input_text",
-                                    "text": """
-請執行以下任務：
-1. 自動偵測圖片中的語言
-2. 擷取所有文字內容（包含標題、條列）
-3. 修正可能的辨識錯誤
-4. 翻譯成繁體中文
-5. 保持原本的段落與條列格式
-"""
+                                    "text": "自動偵測語言並翻譯成繁體中文，保持段落格式。"
                                 },
                                 {
                                     "type": "input_image",
@@ -193,8 +188,7 @@ def upload_file():
                     ]
                 )
 
-                # 維持原本的結果取值方式
-                result = response.output[0].content[0].text
+                result = response.output.content.text
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
