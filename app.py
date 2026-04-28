@@ -16,7 +16,7 @@ client = OpenAI()
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# 手機版優化介面 (包含 viewport 修正與大字體)
+# 手機版優化介面
 HTML = """
 <!doctype html>
 <html lang="zh-TW">
@@ -150,15 +150,12 @@ def upload_file():
 
         if file:
             try:
-                # --- 加速處理 1: 縮小圖片尺寸與品質 ---
+                # --- 加速處理 1: 縮小圖片 ---
                 img = Image.open(file)
-                
-                # 如果寬度超過 1200px 則縮放，減少 API 傳輸負擔
                 if img.width > 1200:
                     new_height = int(img.height * (1200 / img.width))
                     img = img.resize((1200, new_height), Image.Resampling.LANCZOS)
                 
-                # 轉成 RGB 並轉為 JPEG Byte 流
                 if img.mode in ("RGBA", "P"):
                     img = img.convert("RGB")
                 
@@ -168,9 +165,9 @@ def upload_file():
                 
                 image_data_url = f"data:image/jpeg;base64,{base64_image}"
 
-                # --- 加速處理 2: 使用快速模型 gpt-4o-mini ---
+                # --- 加速處理 2: 使用快速模型並修正取值方式 ---
                 response = client.responses.create(
-                    model="gpt-4o-mini", # 切換為 mini 模型，速度最快
+                    model="gpt-4o-mini",
                     input=[
                         {
                             "role": "user",
@@ -188,7 +185,8 @@ def upload_file():
                     ]
                 )
 
-                result = response.output.content.text
+                # 🔥 修正後的取值路徑：response.output 是一個 list，要取第 0 個
+                result = response.output[0].content[0].text
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
