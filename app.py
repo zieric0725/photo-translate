@@ -150,7 +150,7 @@ def upload_file():
 
         if file:
             try:
-                # --- 圖片預處理：提升到 1600px 確保細節 ---
+                # --- 圖片預處理 ---
                 img = Image.open(file)
                 if img.width > 1600: 
                     new_height = int(img.height * (1600 / img.width))
@@ -185,8 +185,17 @@ def upload_file():
                     ]
                 )
 
-                # 🔥 修正後的完整路徑：兩層 List 結構
-                result = response.output[0].content[0].text
+                # 🔥 修正後的安全取值邏輯 🔥
+                # 先取 response.output (list) 的第 0 個，再取其 content (list) 的第 0 個
+                if response.output and len(response.output) > 0:
+                    first_output = response.output[0]
+                    if hasattr(first_output, 'content') and len(first_output.content) > 0:
+                        # 這裡判斷 text 是否存在於第一個 content 內
+                        result = first_output.content[0].text
+                    else:
+                        result = "辨識失敗：回傳格式中找不到內容。"
+                else:
+                    result = "辨識失敗：API 沒有回傳結果。"
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
