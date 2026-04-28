@@ -33,16 +33,16 @@ h2 {
 }
 
 h3 {
-    font-size: 24px;
+    font-size: 30px;
 }
 
 /* 上傳區 */
 form {
-    margin-bottom: 20px;
+    margin-bottom: 28px;
 }
 
 input[type="file"] {
-    font-size: 18px;
+    font-size: 24px;
     margin-bottom: 10px;
 }
 
@@ -58,7 +58,7 @@ input[type="submit"] {
 
 /* loading */
 .loading {
-    font-size: 22px;
+    font-size: 28px;
     margin-top: 10px;
 }
 
