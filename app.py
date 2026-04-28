@@ -28,7 +28,7 @@ body {
 
 /* 標題 */
 h2 {
-    font-size: 28px;
+    font-size: 36px;
     margin-bottom: 15px;
 }
 
