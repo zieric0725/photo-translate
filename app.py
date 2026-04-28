@@ -23,7 +23,7 @@ HTML = """
 body { 
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial;
     padding: 16px;
-    font-size: 20px;   /* 🔥 整體放大 */
+    font-size: 24px;   /* 🔥 整體放大 */
 }
 
 /* 標題 */
