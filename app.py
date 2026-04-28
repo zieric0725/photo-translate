@@ -20,10 +20,30 @@ HTML = """
 <head>
 <title>Photo Translate</title>
 <style>
-body { font-family: Arial; padding: 20px; }
-img { max-width: 300px; margin-top: 10px; }
-.loading { color: red; font-weight: bold; }
-.container { display: flex; gap: 30px; }
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial;
+    padding: 16px;
+    font-size: 18px;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;   /* 🔥 手機友善 */
+    gap: 20px;
+}
+
+img {
+    max-width: 100%;
+    border-radius: 10px;
+}
+
+pre {
+    font-size: 18px;
+    line-height: 1.7;
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 10px;
+}
 </style>
 
 <script>
