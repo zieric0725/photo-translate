@@ -150,7 +150,7 @@ def upload_file():
 
         if file:
             try:
-                # --- 圖片優化：提高清晰度以防翻譯內容遺漏 ---
+                # --- 圖片預處理：提升到 1600px 確保細節 ---
                 img = Image.open(file)
                 if img.width > 1600: 
                     new_height = int(img.height * (1600 / img.width))
@@ -165,7 +165,7 @@ def upload_file():
                 
                 image_data_url = f"data:image/jpeg;base64,{base64_image}"
 
-                # --- API 調用：使用強大的 gpt-4o ---
+                # --- 使用 gpt-4o 進行完整翻譯 ---
                 response = client.responses.create(
                     model="gpt-4o",
                     input=[
@@ -174,7 +174,7 @@ def upload_file():
                             "content": [
                                 {
                                     "type": "input_text",
-                                    "text": "請逐字辨識圖片中所有文字，完整翻譯成繁體中文，絕對不要遺漏任何段落、標題或清單，並保持原本格式。"
+                                    "text": "請逐字辨識圖片中所有文字，完整翻譯成繁體中文，絕對不要遺漏任何段落，並保持原本格式。"
                                 },
                                 {
                                     "type": "input_image",
@@ -185,8 +185,8 @@ def upload_file():
                     ]
                 )
 
-                # 🔥 關鍵修正：加上 [0] 取出 list 中的第一個物件
-                result = response.output[0].content.text
+                # 🔥 修正後的完整路徑：兩層 List 結構
+                result = response.output[0].content[0].text
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
