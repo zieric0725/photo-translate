@@ -23,26 +23,66 @@ HTML = """
 body { 
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial;
     padding: 16px;
+    font-size: 20px;   /* 🔥 整體放大 */
+}
+
+/* 標題 */
+h2 {
+    font-size: 28px;
+    margin-bottom: 15px;
+}
+
+h3 {
+    font-size: 24px;
+}
+
+/* 上傳區 */
+form {
+    margin-bottom: 20px;
+}
+
+input[type="file"] {
     font-size: 18px;
+    margin-bottom: 10px;
 }
 
-.container {
-    display: flex;
-    flex-direction: column;   /* 🔥 手機友善 */
-    gap: 20px;
+/* 上傳按鈕 */
+input[type="submit"] {
+    font-size: 20px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    background-color: #007AFF;
+    color: white;
 }
 
+/* loading */
+.loading {
+    font-size: 22px;
+    margin-top: 10px;
+}
+
+/* 圖片 */
 img {
     max-width: 100%;
     border-radius: 10px;
 }
 
+/* 翻譯區塊 */
 pre {
-    font-size: 18px;
-    line-height: 1.7;
+    font-size: 20px;        /* 🔥 重點：翻譯字變大 */
+    line-height: 1.8;
+    white-space: pre-wrap;
     background: #f5f5f5;
     padding: 15px;
     border-radius: 10px;
+}
+
+/* 手機排版（重點） */
+.container {
+    display: flex;
+    flex-direction: column;   /* 🔥 垂直排列 */
+    gap: 20px;
 }
 </style>
 
