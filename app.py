@@ -3,117 +3,201 @@ from openai import OpenAI
 import os
 import base64
 import mimetypes
-import io
-from PIL import Image
 
-# 支援 iPhone HEIC
+# 支援 iPhone HEIC 格式
 from pillow_heif import register_heif_opener
 register_heif_opener()
 
 app = Flask(__name__)
-client = OpenAI() # 確保你的環境變數中已設定 OPENAI_API_KEY
+client = OpenAI()
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# 手機優化界面
+# 這裡是優化後的手機介面，解決你截圖中文字太小的問題
 HTML = """
 <!doctype html>
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- 關鍵：加入 viewport 讓手機螢幕顯示正常比例 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Photo Translate</title>
 <style>
-body { padding: 20px; font-family: -apple-system, sans-serif; margin: 0; background-color: #f8f9fa; color: #333; }
-h2 { font-size: 32px; margin-bottom: 20px; text-align: center; }
-form { display: flex; flex-direction: column; gap: 15px; margin-bottom: 28px; }
-input[type="file"] { font-size: 18px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: white; }
-input[type="submit"] { font-size: 24px; padding: 18px; border-radius: 12px; border: none; background-color: #007AFF; color: white; font-weight: bold; width: 100%; -webkit-appearance: none; }
-pre { font-size: 20px; line-height: 1.7; white-space: pre-wrap; background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
-.loading { font-size: 24px; font-weight: bold; color: #007AFF; text-align: center; margin-top: 15px; }
-img { max-width: 100%; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-.container { display: flex; flex-direction: column; gap: 25px; margin-top: 20px; }
+/* 基礎設定 */
+body {
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    background-color: #fcfcfc;
+}
+
+h2 {
+    font-size: 32px; /* 標題加大 */
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+h3 {
+    font-size: 24px;
+}
+
+/* 表單與按鈕優化 */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 28px;
+}
+
+input[type="file"] {
+    font-size: 18px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+}
+
+/* 上傳按鈕：寬度 100% 方便手機拇指點擊 */
+input[type="submit"] {
+    font-size: 24px;
+    padding: 18px;
+    border-radius: 12px;
+    border: none;
+    background-color: #007AFF;
+    color: white;
+    font-weight: bold;
+    width: 100%;
+    -webkit-appearance: none; /* 移除 iOS 預設樣式 */
+}
+
+/* 翻譯結果：字體加大，行高增加 */
+pre {
+    font-size: 22px; 
+    line-height: 1.8;
+    white-space: pre-wrap;
+    background: #f0f0f0;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    color: #1a1a1a;
+}
+
+/* 載入中狀態 */
+.loading {
+    font-size: 28px;
+    font-weight: bold;
+    color: #007AFF;
+    text-align: center;
+    margin-top: 10px;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
 </style>
+
 <script>
 function showLoading() {
     document.getElementById("loading").style.display = "block";
     document.getElementById("submit-btn").disabled = true;
-    document.getElementById("submit-btn").value = "正在翻譯中...";
+    document.getElementById("submit-btn").value = "正在精確翻譯...";
 }
 </script>
 </head>
+
 <body>
-<h2>📸 穩定版翻譯器</h2>
+<h2>📸 照片翻譯器</h2>
+
 <form method=post enctype=multipart/form-data onsubmit="showLoading()">
   <input type=file name=file accept="image/*" required>
-  <input type=submit id="submit-btn" value="開始上傳翻譯">
+  <input type=submit id="submit-btn" value="開始上傳">
 </form>
-<p id="loading" class="loading" style="display:none;">⏳ AI 正在全力辨識中...</p>
+
+<p id="loading" class="loading" style="display:none;">
+⏳ 翻譯中，請稍候...
+</p>
+
 {% if image %}
 <hr>
 <div class="container">
-  <div><h3>原圖：</h3><img src="{{ image }}"></div>
-  <div><h3>翻譯結果：</h3><pre>{{ result }}</pre></div>
+  <div>
+    <h3>📸 原圖：</h3>
+    <img src="{{ image }}">
+  </div>
+
+  <div>
+    <h3>📝 翻譯結果：</h3>
+    <pre>{{ result }}</pre>
+  </div>
 </div>
 {% endif %}
+
 </body>
 </html>
 """
 
 @app.route("/", methods=["GET", "POST"])
 def upload_file():
-    result = ""
+    result = None
     image_data_url = None
 
     if request.method == "POST":
         file = request.files["file"]
-        if file:
-            try:
-                # 1. 圖片縮修：提升至 1600px 確保清晰，但減少檔案大小
-                img = Image.open(file)
-                if img.width > 1600:
-                    new_height = int(img.height * (1600 / img.width))
-                    img = img.resize((1600, new_height), Image.Resampling.LANCZOS)
-                
-                if img.mode in ("RGBA", "P"):
-                    img = img.convert("RGB")
-                
-                buffered = io.BytesIO()
-                img.save(buffered, format="JPEG", quality=88)
-                base64_image = base64.b64encode(buffered.getvalue()).decode("utf-8")
-                
-                image_data_url = f"data:image/jpeg;base64,{base64_image}"
 
-                # 2. 改用最穩定的 Chat Completions 介面
-                response = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
+        if file:
+            filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+            file.save(filepath)
+
+            with open(filepath, "rb") as f:
+                image_data = f.read()
+
+            base64_image = base64.b64encode(image_data).decode("utf-8")
+            mime_type, _ = mimetypes.guess_type(filepath)
+            if mime_type is None:
+                mime_type = "image/jpeg"
+
+            image_data_url = f"data:{mime_type};base64,{base64_image}"
+
+            try:
+                # --- 完全回到你最初能成功的邏輯與模型 ---
+                response = client.responses.create(
+                    model="gpt-4.1",
+                    input=[
                         {
                             "role": "user",
                             "content": [
-                                {"type": "text", "text": "請逐字辨識圖片中的所有文字，並翻譯成繁體中文。請保持原本的段落格式，不要遺漏任何內容。"},
                                 {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": image_data_url,
-                                        "detail": "high" # 強制高清晰度辨識
-                                    }
+                                    "type": "input_text",
+                                    "text": "請執行以下任務：1. 自動偵測圖片中的語言 2. 擷取所有文字內容 3. 翻譯成繁體中文 4. 保持段落與條列格式"
+                                },
+                                {
+                                    "type": "input_image",
+                                    "image_url": image_data_url
                                 }
                             ]
                         }
-                    ],
-                    max_tokens=2000
+                    ]
                 )
 
-                # 3. 穩定的取值方式
-                result = response.choices[0].message.content
+                # 回到最初的取值方式
+                result = response.output[0].content[0].text
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
-                print("DEBUG:", e)
+                print("DEBUG ERROR:", e)
 
     return render_template_string(HTML, result=result, image=image_data_url)
 
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
