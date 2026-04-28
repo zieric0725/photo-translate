@@ -20,47 +20,43 @@ HTML = """
 <head>
 <title>Photo Translate</title>
 <style>
-body { 
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial;
-    padding: 16px;
-    font-size: 24px;   /* 🔥 整體放大 */
+/* 基礎修正：讓手機版顯示正確 */
+body {
+    padding: 20px;         /* 讓內容不要貼死螢幕邊邊 */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
 }
 
-/* 標題 */
 h2 {
-    font-size: 36px;
-    margin-bottom: 15px;
+    font-size: 28px;       /* 稍微調小一點，避免太長 */
+    margin-bottom: 20px;
+    color: #333;
 }
 
-h3 {
-    font-size: 30px;
-}
-
-/* 上傳區 */
 form {
-    margin-bottom: 28px;
+    display: flex;         /* 使用 Flexbox 讓元件排列更靈活 */
+    flex-direction: column; /* 改為垂直排列，適合手機單手操作 */
+    gap: 15px;             /* 元件之間的間距 */
 }
 
 input[type="file"] {
-    font-size: 24px;
-    margin-bottom: 10px;
+    font-size: 16px;       /* 檔案選擇器不需要太大 */
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
 }
 
-/* 上傳按鈕 */
 input[type="submit"] {
     font-size: 20px;
-    padding: 10px 16px;
-    border-radius: 8px;
+    padding: 15px;         /* 增加高度，大拇指才好按 */
+    border-radius: 10px;
     border: none;
     background-color: #007AFF;
     color: white;
+    width: 100%;           /* 讓按鈕變寬，像 App 的感覺 */
+    font-weight: bold;
 }
 
-/* loading */
-.loading {
-    font-size: 28px;
-    margin-top: 10px;
-}
 
 /* 圖片 */
 img {
