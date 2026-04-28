@@ -104,13 +104,13 @@ img {
 function showLoading() {
     document.getElementById("loading").style.display = "block";
     document.getElementById("submit-btn").disabled = true;
-    document.getElementById("submit-btn").value = "加速處理中...";
+    document.getElementById("submit-btn").value = "正在精確翻譯中...";
 }
 </script>
 </head>
 
 <body>
-<h2>📸 快速照片翻譯</h2>
+<h2>📸 精確照片翻譯</h2>
 
 <form method=post enctype=multipart/form-data onsubmit="showLoading()">
   <input type=file name=file accept="image/*" required>
@@ -118,7 +118,7 @@ function showLoading() {
 </form>
 
 <p id="loading" class="loading" style="display:none;">
-🚀 正在極速翻譯，請稍候...
+🔍 正在全力辨識文字，請稍候...
 </p>
 
 {% if image %}
@@ -150,31 +150,31 @@ def upload_file():
 
         if file:
             try:
-                # --- 加速處理 1: 縮小圖片 ---
+                # --- 優化 1: 提高圖片清晰度以防遺漏 ---
                 img = Image.open(file)
-                if img.width > 1200:
-                    new_height = int(img.height * (1200 / img.width))
-                    img = img.resize((1200, new_height), Image.Resampling.LANCZOS)
+                if img.width > 1600: # 稍微提高限制，讓小字更清楚
+                    new_height = int(img.height * (1600 / img.width))
+                    img = img.resize((1600, new_height), Image.Resampling.LANCZOS)
                 
                 if img.mode in ("RGBA", "P"):
                     img = img.convert("RGB")
                 
                 buffered = io.BytesIO()
-                img.save(buffered, format="JPEG", quality=85)
+                img.save(buffered, format="JPEG", quality=90) # 提高品質
                 base64_image = base64.b64encode(buffered.getvalue()).decode("utf-8")
                 
                 image_data_url = f"data:image/jpeg;base64,{base64_image}"
 
-                # --- 加速處理 2: 使用快速模型並修正取值方式 ---
+                # --- 優化 2: 換回強大的 gpt-4o 並強化指令 ---
                 response = client.responses.create(
-                    model="gpt-4o-mini",
+                    model="gpt-4o", # 換回精確度最高的版本
                     input=[
                         {
                             "role": "user",
                             "content": [
                                 {
                                     "type": "input_text",
-                                    "text": "自動偵測語言並翻譯成繁體中文，保持段落格式。"
+                                    "text": "請逐字辨識圖片中所有文字，完整翻譯成繁體中文，絕對不要遺漏任何段落、標題或清單，並保持原本的格式。"
                                 },
                                 {
                                     "type": "input_image",
@@ -185,8 +185,7 @@ def upload_file():
                     ]
                 )
 
-                # 🔥 修正後的取值路徑：response.output 是一個 list，要取第 0 個
-                result = response.output[0].content[0].text
+                result = response.output.content.text
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
