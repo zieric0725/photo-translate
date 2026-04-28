@@ -14,96 +14,130 @@ client = OpenAI()
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# --- 這裡我更新了 HTML 的部分 ---
 HTML = """
 <!doctype html>
-<html>
+<html lang="zh-TW">
 <head>
+<meta charset="utf-8">
+<!-- 重要：這行是解決你圖片中縮小問題的關鍵 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Photo Translate</title>
 <style>
 /* 基礎修正：讓手機版顯示正確 */
 body {
-    padding: 20px;         /* 讓內容不要貼死螢幕邊邊 */
+    padding: 20px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
+    background-color: #fcfcfc;
 }
 
 h2 {
-    font-size: 28px;       /* 稍微調小一點，避免太長 */
+    font-size: 28px;
     margin-bottom: 20px;
-    color: #333;
+    color: #1a1a1a;
+    text-align: center;
 }
 
 form {
-    display: flex;         /* 使用 Flexbox 讓元件排列更靈活 */
-    flex-direction: column; /* 改為垂直排列，適合手機單手操作 */
-    gap: 15px;             /* 元件之間的間距 */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
+/* 檔案選擇器美化 */
 input[type="file"] {
-    font-size: 16px;       /* 檔案選擇器不需要太大 */
-    padding: 10px;
-    border: 1px solid #ddd;
+    font-size: 16px;
+    padding: 12px;
+    border: 2px dashed #ccc;
     border-radius: 8px;
+    background: #fff;
 }
 
+/* 上傳按鈕：大且好按 */
 input[type="submit"] {
     font-size: 20px;
-    padding: 15px;         /* 增加高度，大拇指才好按 */
-    border-radius: 10px;
+    padding: 16px;
+    border-radius: 12px;
     border: none;
     background-color: #007AFF;
     color: white;
-    width: 100%;           /* 讓按鈕變寬，像 App 的感覺 */
+    width: 100%;
     font-weight: bold;
+    cursor: pointer;
+    -webkit-appearance: none; /* 移除 iOS 預設按鈕外觀 */
 }
 
+input[type="submit"]:active {
+    background-color: #0056b3; /* 按下去的視覺反饋 */
+}
 
-/* 圖片 */
+/* 圖片顯示 */
 img {
     max-width: 100%;
+    height: auto;
     border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
 /* 翻譯區塊 */
 pre {
-    font-size: 20px;        /* 🔥 重點：翻譯字變大 */
-    line-height: 1.8;
+    font-size: 18px; /* 手機上 18px 閱讀最舒適 */
+    line-height: 1.6;
     white-space: pre-wrap;
-    background: #f5f5f5;
-    padding: 15px;
+    background: #fff;
+    padding: 20px;
     border-radius: 10px;
+    border: 1px solid #eee;
+    color: #333;
 }
 
-/* 手機排版（重點） */
+/* loading 字體放大 */
+.loading {
+    font-size: 22px;
+    font-weight: bold;
+    color: #007AFF;
+    text-align: center;
+    margin: 20px 0;
+}
+
 .container {
     display: flex;
-    flex-direction: column;   /* 🔥 垂直排列 */
-    gap: 20px;
+    flex-direction: column;
+    gap: 25px;
+    margin-top: 20px;
+}
+
+h3 {
+    margin-bottom: 10px;
+    color: #555;
 }
 </style>
 
 <script>
 function showLoading() {
     document.getElementById("loading").style.display = "block";
+    document.getElementById("submit-btn").disabled = true;
+    document.getElementById("submit-btn").value = "翻譯處理中...";
 }
 </script>
 </head>
 
 <body>
-<h2>上傳照片翻譯</h2>
+<h2>📸 照片翻譯器</h2>
 
 <form method=post enctype=multipart/form-data onsubmit="showLoading()">
-  <input type=file name=file required>
-  <input type=submit value=上傳>
+  <input type=file name=file accept="image/*" required>
+  <input type=submit id="submit-btn" value="開始上傳翻譯">
 </form>
 
 <p id="loading" class="loading" style="display:none;">
-⏳ 翻譯中，請稍候...
+⏳ 正在分析圖片內容...
 </p>
 
 {% if image %}
-<hr>
 <div class="container">
+  <hr>
   <div>
     <h3>原圖：</h3>
     <img src="{{ image }}">
@@ -129,6 +163,7 @@ def upload_file():
         file = request.files["file"]
 
         if file:
+            # 儲存與處理圖片
             filepath = os.path.join(UPLOAD_FOLDER, file.filename)
             file.save(filepath)
 
@@ -136,42 +171,27 @@ def upload_file():
                 image_data = f.read()
 
             base64_image = base64.b64encode(image_data).decode("utf-8")
-
             mime_type, _ = mimetypes.guess_type(filepath)
             if mime_type is None:
                 mime_type = "image/jpeg"
 
-            # 👉 給前端顯示用
             image_data_url = f"data:{mime_type};base64,{base64_image}"
 
             try:
-                response = client.responses.create(
-                    model="gpt-4.1",
-                    input=[
+                # GPT-4o 辨識與翻譯 (確保模型名稱正確，通常是 gpt-4o)
+                response = client.chat.completions.create(
+                    model="gpt-4o", 
+                    messages=[
                         {
                             "role": "user",
                             "content": [
-                                {
-                                    "type": "input_text",
-                                    "text": """
-請執行以下任務：
-1. 自動偵測圖片中的語言
-2. 擷取所有文字內容（包含標題、條列）
-3. 修正可能的辨識錯誤
-4. 翻譯成繁體中文
-5. 保持原本的段落與條列格式
-"""
-                                },
-                                {
-                                    "type": "input_image",
-                                    "image_url": image_data_url
-                                }
+                                {"type": "text", "text": "請擷取圖片中所有文字，並翻譯成繁體中文，保持原本段落格式。"},
+                                {"type": "image_url", "image_url": {"url": image_data_url}}
                             ]
                         }
                     ]
                 )
-
-                result = response.output[0].content[0].text
+                result = response.choices[0].message.content
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
