@@ -150,9 +150,9 @@ def upload_file():
 
         if file:
             try:
-                # --- 優化 1: 提高圖片清晰度以防遺漏 ---
+                # --- 圖片優化：提高清晰度以防翻譯內容遺漏 ---
                 img = Image.open(file)
-                if img.width > 1600: # 稍微提高限制，讓小字更清楚
+                if img.width > 1600: 
                     new_height = int(img.height * (1600 / img.width))
                     img = img.resize((1600, new_height), Image.Resampling.LANCZOS)
                 
@@ -160,21 +160,21 @@ def upload_file():
                     img = img.convert("RGB")
                 
                 buffered = io.BytesIO()
-                img.save(buffered, format="JPEG", quality=90) # 提高品質
+                img.save(buffered, format="JPEG", quality=90) 
                 base64_image = base64.b64encode(buffered.getvalue()).decode("utf-8")
                 
                 image_data_url = f"data:image/jpeg;base64,{base64_image}"
 
-                # --- 優化 2: 換回強大的 gpt-4o 並強化指令 ---
+                # --- API 調用：使用強大的 gpt-4o ---
                 response = client.responses.create(
-                    model="gpt-4o", # 換回精確度最高的版本
+                    model="gpt-4o",
                     input=[
                         {
                             "role": "user",
                             "content": [
                                 {
                                     "type": "input_text",
-                                    "text": "請逐字辨識圖片中所有文字，完整翻譯成繁體中文，絕對不要遺漏任何段落、標題或清單，並保持原本的格式。"
+                                    "text": "請逐字辨識圖片中所有文字，完整翻譯成繁體中文，絕對不要遺漏任何段落、標題或清單，並保持原本格式。"
                                 },
                                 {
                                     "type": "input_image",
@@ -185,7 +185,8 @@ def upload_file():
                     ]
                 )
 
-                result = response.output.content.text
+                # 🔥 關鍵修正：加上 [0] 取出 list 中的第一個物件
+                result = response.output[0].content.text
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
