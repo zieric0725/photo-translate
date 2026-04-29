@@ -412,8 +412,6 @@ HTML = """
 </div>
 {% endif %}
 
-{% endif %}
-
 <!-- 翻譯紀錄 -->
 <div class="history-section">
   <div class="history-header">
