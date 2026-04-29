@@ -4,7 +4,6 @@ import os
 import base64
 import mimetypes
 
-# 支援 iPhone HEIC 格式
 from pillow_heif import register_heif_opener
 register_heif_opener()
 
@@ -14,133 +13,307 @@ client = OpenAI()
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# 這裡是優化後的手機介面，解決你截圖中文字太小的問題
 HTML = """
 <!doctype html>
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8">
-<!-- 關鍵：加入 viewport 讓手機螢幕顯示正常比例 -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Photo Translate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>照片翻譯器</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-/* 基礎設定 */
-body {
-    padding: 20px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    margin: 0;
-    background-color: #fcfcfc;
-}
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-h2 {
-    font-size: 32px; /* 標題加大 */
-    margin-bottom: 20px;
+  :root {
+    --blue: #1A73E8;
+    --blue-dark: #1558B0;
+    --bg: #F5F7FA;
+    --card: #FFFFFF;
+    --text: #1C1C1E;
+    --muted: #6B7280;
+    --border: #E5E7EB;
+    --radius: 16px;
+  }
+
+  body {
+    font-family: 'Noto Sans TC', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 48px;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--blue);
+    padding: 20px 20px 28px;
     text-align: center;
-}
+    border-radius: 0 0 28px 28px;
+    margin-bottom: 24px;
+  }
+  .header-icon {
+    font-size: 40px;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+  .header p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.75);
+    margin-top: 4px;
+  }
 
-h3 {
-    font-size: 24px;
-}
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin: 0 16px 20px;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .card-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
 
-/* 表單與按鈕優化 */
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    margin-bottom: 28px;
-}
-
-input[type="file"] {
-    font-size: 18px;
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background: white;
-}
-
-/* 上傳按鈕：寬度 100% 方便手機拇指點擊 */
-input[type="submit"] {
-    font-size: 24px;
-    padding: 18px;
+  /* ── Upload area ── */
+  .upload-zone {
+    border: 2px dashed var(--border);
     border-radius: 12px;
-    border: none;
-    background-color: #007AFF;
-    color: white;
-    font-weight: bold;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    background: #FAFAFA;
+  }
+  .upload-zone:hover, .upload-zone.has-file {
+    border-color: var(--blue);
+    background: #EEF4FE;
+  }
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
     width: 100%;
-    -webkit-appearance: none; /* 移除 iOS 預設樣式 */
-}
+    height: 100%;
+  }
+  .upload-icon { font-size: 36px; display: block; margin-bottom: 8px; }
+  .upload-text {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .upload-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .upload-filename {
+    font-size: 13px;
+    color: var(--blue);
+    font-weight: 500;
+    margin-top: 8px;
+    display: none;
+  }
 
-/* 翻譯結果：字體加大，行高增加 */
-pre {
-    font-size: 22px; 
-    line-height: 1.8;
-    white-space: pre-wrap;
-    background: #f0f0f0;
+  /* ── Submit button ── */
+  .btn {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 0 16px 0;
+    padding: 16px;
+    background: var(--blue);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: inherit;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.3px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:hover { background: var(--blue-dark); }
+  .btn:disabled {
+    background: #93B4E8;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ── Loading ── */
+  .loading-card {
+    margin: 20px 16px 0;
+    display: none;
+  }
+  .loading-inner {
+    background: #EEF4FE;
+    border: 1px solid #C7D9F8;
+    border-radius: var(--radius);
     padding: 20px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
-    color: #1a1a1a;
-}
-
-/* 載入中狀態 */
-.loading {
-    font-size: 28px;
-    font-weight: bold;
-    color: #007AFF;
     text-align: center;
-    margin-top: 10px;
-}
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid #C7D9F8;
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--blue);
+  }
 
-img {
-    max-width: 100%;
-    height: auto;
+  /* ── Result section ── */
+  .result-section { margin-top: 28px; }
+  .original-img {
+    width: 100%;
     border-radius: 12px;
-}
+    display: block;
+    border: 1px solid var(--border);
+  }
+  .result-text {
+    font-size: 16px;
+    line-height: 1.9;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 
-.container {
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-}
+  /* ── Copy button ── */
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    padding: 8px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .copy-btn:hover { background: var(--border); }
+  .copy-btn.copied { color: #16A34A; border-color: #86EFAC; background: #F0FDF4; }
+
+  /* ── Error ── */
+  .error-box {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: 12px;
+    padding: 16px;
+    color: #B91C1C;
+    font-size: 14px;
+    line-height: 1.6;
+  }
 </style>
-
-<script>
-function showLoading() {
-    document.getElementById("loading").style.display = "block";
-    document.getElementById("submit-btn").disabled = true;
-    document.getElementById("submit-btn").value = "正在精確翻譯...";
-}
-</script>
 </head>
 
 <body>
-<h2>📸 照片翻譯器</h2>
 
-<form method=post enctype=multipart/form-data onsubmit="showLoading()">
-  <input type=file name=file accept="image/*" required>
-  <input type=submit id="submit-btn" value="開始上傳">
-</form>
+<div class="header">
+  <span class="header-icon">📸</span>
+  <h1>照片翻譯器</h1>
+  <p>上傳圖片，自動偵測語言並翻譯成繁體中文</p>
+</div>
 
-<p id="loading" class="loading" style="display:none;">
-⏳ 翻譯中，請稍候...
-</p>
-
-{% if image %}
-<hr>
-<div class="container">
-  <div>
-    <h3>📸 原圖：</h3>
-    <img src="{{ image }}">
+<form method="post" enctype="multipart/form-data" onsubmit="handleSubmit(event)" id="mainForm">
+  <div class="card">
+    <div class="card-label">選擇圖片</div>
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" name="file" accept="image/*" required id="fileInput" onchange="handleFileChange(this)">
+      <span class="upload-icon">🖼️</span>
+      <div class="upload-text">點擊選擇或拍照上傳</div>
+      <div class="upload-hint">支援 JPG、PNG、HEIC 等格式</div>
+      <div class="upload-filename" id="fileName"></div>
+    </div>
   </div>
 
-  <div>
-    <h3>📝 翻譯結果：</h3>
-    <pre>{{ result }}</pre>
+  <button type="submit" class="btn" id="submitBtn">開始翻譯</button>
+</form>
+
+<div class="loading-card" id="loadingCard">
+  <div class="loading-inner">
+    <div class="spinner"></div>
+    <div class="loading-text">AI 正在分析圖片，請稍候…</div>
+  </div>
+</div>
+
+{% if image %}
+<div class="result-section">
+  <div class="card">
+    <div class="card-label">原始圖片</div>
+    <img class="original-img" src="{{ image }}" alt="上傳的圖片">
+  </div>
+
+  <div class="card">
+    <div class="card-label">翻譯結果</div>
+    {% if result and result.startswith('發生錯誤') %}
+      <div class="error-box">{{ result }}</div>
+    {% else %}
+      <div class="result-text" id="resultText">{{ result }}</div>
+      <button class="copy-btn" onclick="copyResult()" id="copyBtn">
+        <span>📋</span> 複製文字
+      </button>
+    {% endif %}
   </div>
 </div>
 {% endif %}
 
+<script>
+function handleFileChange(input) {
+  const zone = document.getElementById('uploadZone');
+  const nameEl = document.getElementById('fileName');
+  if (input.files && input.files[0]) {
+    zone.classList.add('has-file');
+    nameEl.textContent = '✓ ' + input.files[0].name;
+    nameEl.style.display = 'block';
+  }
+}
+
+function handleSubmit(e) {
+  const fileInput = document.getElementById('fileInput');
+  if (!fileInput.files || !fileInput.files[0]) return;
+  const btn = document.getElementById('submitBtn');
+  const loading = document.getElementById('loadingCard');
+  btn.disabled = true;
+  btn.textContent = '翻譯中…';
+  loading.style.display = 'block';
+}
+
+function copyResult() {
+  const text = document.getElementById('resultText').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.classList.add('copied');
+    btn.innerHTML = '<span>✓</span> 已複製';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<span>📋</span> 複製文字';
+    }, 2000);
+  });
+}
+</script>
 </body>
 </html>
 """
@@ -168,7 +341,6 @@ def upload_file():
             image_data_url = f"data:{mime_type};base64,{base64_image}"
 
             try:
-                # --- 完全回到你最初能成功的邏輯與模型 ---
                 response = client.responses.create(
                     model="gpt-4.1",
                     input=[
@@ -187,8 +359,6 @@ def upload_file():
                         }
                     ]
                 )
-
-                # 回到最初的取值方式
                 result = response.output[0].content[0].text
 
             except Exception as e:
