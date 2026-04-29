@@ -1,11 +1,30 @@
 from flask import Flask, request, render_template_string
 from openai import OpenAI
+from PIL import Image
+import io
 import os
 import base64
 import mimetypes
 
 from pillow_heif import register_heif_opener
 register_heif_opener()
+
+MAX_SIZE = 1600       # 最長邊縮到 1600px
+JPEG_QUALITY = 85     # JPEG 壓縮品質（85% 清晰度夠用，檔案小很多）
+
+def compress_image(filepath: str) -> tuple[bytes, str]:
+    """把圖片壓縮後回傳 (bytes, mime_type)"""
+    with Image.open(filepath) as img:
+        # 轉成 RGB（HEIC / PNG with alpha 需要這步）
+        if img.mode in ("RGBA", "P", "CMYK"):
+            img = img.convert("RGB")
+
+        # 等比例縮小（只縮不放大）
+        img.thumbnail((MAX_SIZE, MAX_SIZE), Image.LANCZOS)
+
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+        return buf.getvalue(), "image/jpeg"
 
 app = Flask(__name__)
 client = OpenAI()
@@ -263,6 +282,11 @@ HTML = """
 <div class="result-section">
   <div class="card">
     <div class="card-label">原始圖片</div>
+    {% if size_info %}
+    <div style="font-size:12px; color:#16A34A; background:#F0FDF4; border:1px solid #86EFAC; border-radius:8px; padding:6px 12px; margin-bottom:12px; display:inline-block;">
+      ⚡ 已壓縮：{{ size_info }}
+    </div>
+    {% endif %}
     <img class="original-img" src="{{ image }}" alt="上傳的圖片">
   </div>
 
@@ -322,6 +346,7 @@ function copyResult() {
 def upload_file():
     result = None
     image_data_url = None
+    size_info = None
 
     if request.method == "POST":
         file = request.files["file"]
@@ -330,14 +355,14 @@ def upload_file():
             filepath = os.path.join(UPLOAD_FOLDER, file.filename)
             file.save(filepath)
 
-            with open(filepath, "rb") as f:
-                image_data = f.read()
+            original_size = os.path.getsize(filepath)
+
+            # 壓縮圖片再送出
+            image_data, mime_type = compress_image(filepath)
+            compressed_size = len(image_data)
+            size_info = f"{original_size/1024/1024:.1f}MB → {compressed_size/1024:.0f}KB"
 
             base64_image = base64.b64encode(image_data).decode("utf-8")
-            mime_type, _ = mimetypes.guess_type(filepath)
-            if mime_type is None:
-                mime_type = "image/jpeg"
-
             image_data_url = f"data:{mime_type};base64,{base64_image}"
 
             try:
@@ -365,7 +390,7 @@ def upload_file():
                 result = f"發生錯誤：{str(e)}"
                 print("DEBUG ERROR:", e)
 
-    return render_template_string(HTML, result=result, image=image_data_url)
+    return render_template_string(HTML, result=result, image=image_data_url, size_info=size_info)
 
 
 if __name__ == "__main__":
