@@ -245,6 +245,114 @@ HTML = """
     font-size: 14px;
     line-height: 1.6;
   }
+
+  /* ── History ── */
+  .history-section { margin-top: 32px; }
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 16px 12px;
+  }
+  .history-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .clear-btn {
+    font-size: 12px;
+    color: #EF4444;
+    background: none;
+    border: 1px solid #FECACA;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .history-empty {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 20px;
+  }
+  .history-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin: 0 16px 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .history-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .history-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .history-meta {
+    flex: 1;
+    min-width: 0;
+  }
+  .history-time {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .history-preview {
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .history-chevron {
+    font-size: 12px;
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .history-chevron.open { transform: rotate(180deg); }
+  .history-body {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 14px;
+  }
+  .history-body.open { display: block; }
+  .history-full-img {
+    width: 100%;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+  }
+  .history-full-text {
+    font-size: 14px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    color: var(--text);
+  }
+  .history-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    padding: 6px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--muted);
+    cursor: pointer;
+  }
 </style>
 </head>
 
@@ -304,7 +412,110 @@ HTML = """
 </div>
 {% endif %}
 
+{% endif %}
+
+<!-- 翻譯紀錄 -->
+<div class="history-section">
+  <div class="history-header">
+    <span class="history-title">📋 翻譯紀錄</span>
+    <button class="clear-btn" onclick="clearHistory()">全部清除</button>
+  </div>
+  <div id="historyList">
+    <div class="history-empty" id="historyEmpty">還沒有翻譯紀錄</div>
+  </div>
+</div>
+
 <script>
+// ── 翻譯紀錄（存在 sessionStorage，關閉分頁即清除）──
+
+const HISTORY_KEY = 'translate_history';
+
+function getHistory() {
+  try { return JSON.parse(sessionStorage.getItem(HISTORY_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveHistory(list) {
+  sessionStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  const h = String(d.getHours()).padStart(2,'0');
+  const m = String(d.getMinutes()).padStart(2,'0');
+  return `今天 ${h}:${m}`;
+}
+
+function renderHistory() {
+  const list = getHistory();
+  const container = document.getElementById('historyList');
+  const empty = document.getElementById('historyEmpty');
+
+  // 清除舊項目（保留 empty）
+  Array.from(container.querySelectorAll('.history-item')).forEach(el => el.remove());
+
+  if (list.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML = `
+      <div class="history-item-header" onclick="toggleItem(${idx})">
+        <img class="history-thumb" src="${item.image}" alt="縮圖">
+        <div class="history-meta">
+          <div class="history-time">${formatTime(item.ts)}</div>
+          <div class="history-preview">${item.text.slice(0, 40)}…</div>
+        </div>
+        <span class="history-chevron" id="chev-${idx}">▼</span>
+      </div>
+      <div class="history-body" id="body-${idx}">
+        <img class="history-full-img" src="${item.image}" alt="原圖">
+        <div class="history-full-text">${item.text}</div>
+        <button class="history-copy-btn" onclick="copyHistory(${idx})">📋 複製</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function toggleItem(idx) {
+  const body = document.getElementById(`body-${idx}`);
+  const chev = document.getElementById(`chev-${idx}`);
+  body.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+function copyHistory(idx) {
+  const list = getHistory();
+  navigator.clipboard.writeText(list[idx].text);
+}
+
+function clearHistory() {
+  if (confirm('確定要清除所有紀錄嗎？')) {
+    sessionStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+  }
+}
+
+// 頁面載入時，若有新翻譯結果就存進紀錄
+window.addEventListener('DOMContentLoaded', () => {
+  const resultEl = document.getElementById('resultText');
+  const imgEl = document.querySelector('.original-img');
+
+  if (resultEl && imgEl) {
+    const list = getHistory();
+    list.unshift({ text: resultEl.innerText, image: imgEl.src, ts: Date.now() });
+    if (list.length > 20) list.pop(); // 最多保留 20 筆
+    saveHistory(list);
+  }
+
+  renderHistory();
+});
+
 function handleFileChange(input) {
   const zone = document.getElementById('uploadZone');
   const nameEl = document.getElementById('fileName');
