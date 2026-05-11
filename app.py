@@ -593,7 +593,20 @@ def upload_file():
                         }
                     ]
                 )
-                result = response.output[0].content[0].text
+                print("DEBUG RESPONSE TYPE:", type(response))
+                print("DEBUG RESPONSE:", response)
+                # 嘗試不同的回傳結構（gpt-5-nano 與舊模型格式不同）
+                try:
+                    result = response.output[0].content[0].text
+                except (IndexError, AttributeError, TypeError):
+                    try:
+                        result = response.output_text
+                    except AttributeError:
+                        try:
+                            result = response.output[0].text
+                        except (IndexError, AttributeError, TypeError):
+                            result = f"無法解析回應，原始內容：{str(response)}"
+                            print("DEBUG RESPONSE:", response)
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
