@@ -27,7 +27,7 @@ def compress_image(filepath: str) -> tuple[bytes, str]:
         return buf.getvalue(), "image/jpeg"
 
 app = Flask(__name__)
-client = OpenAI()
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
