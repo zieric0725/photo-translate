@@ -596,7 +596,7 @@ def upload_file():
                             ]
                         }
                     ],
-                    max_tokens=2000
+                    max_completion_tokens=2000
                 )
                 print("DEBUG RESPONSE:", response)
                 result = response.choices[0].message.content
