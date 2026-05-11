@@ -596,7 +596,7 @@ def upload_file():
                             ]
                         }
                     ],
-                    max_completion_tokens=2000
+                    max_completion_tokens=8000
                 )
                 print("DEBUG RESPONSE:", response)
                 print("DEBUG RESPONSE:", response)
