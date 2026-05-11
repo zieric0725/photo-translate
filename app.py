@@ -46,7 +46,7 @@ HTML = """
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --blue: #b0906f;
+    --blue: #cda581;
     --blue-dark: #1558B0;
     --bg: #F5F7FA;
     --card: #FFFFFF;
