@@ -2,3 +2,4 @@ flask
 openai
 pillow
 pillow-heif
+gunicorn
