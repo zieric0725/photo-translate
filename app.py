@@ -368,10 +368,10 @@ HTML = """
   <div class="card">
     <div class="card-label">選擇圖片</div>
     <div class="upload-zone" id="uploadZone">
-      <input type="file" name="file" accept="image/*" required id="fileInput" onchange="handleFileChange(this)">
+      <input type="file" name="files" accept="image/*" required id="fileInput" multiple onchange="handleFileChange(this)">
       <span class="upload-icon">🖼️</span>
       <div class="upload-text">點擊選擇或拍照上傳</div>
-      <div class="upload-hint">支援 JPG、PNG、HEIC 等格式</div>
+      <div class="upload-hint">支援 JPG、PNG、HEIC，可一次選多張</div>
       <div class="upload-filename" id="fileName"></div>
     </div>
   </div>
@@ -386,29 +386,30 @@ HTML = """
   </div>
 </div>
 
-{% if image %}
+{% if results %}
 <div class="result-section">
+  {% for item in results %}
   <div class="card">
-    <div class="card-label">原始圖片</div>
-    {% if size_info %}
+    <div class="card-label">第 {{ loop.index }} 張 — 原始圖片</div>
+    {% if item.size_info %}
     <div style="font-size:12px; color:#16A34A; background:#F0FDF4; border:1px solid #86EFAC; border-radius:8px; padding:6px 12px; margin-bottom:12px; display:inline-block;">
-      ⚡ 已壓縮：{{ size_info }}
+      ⚡ 已壓縮：{{ item.size_info }}
     </div>
     {% endif %}
-    <img class="original-img" src="{{ image }}" alt="上傳的圖片">
+    <img class="original-img" src="{{ item.image }}" alt="圖片 {{ loop.index }}">
   </div>
-
   <div class="card">
-    <div class="card-label">翻譯結果</div>
-    {% if result and result.startswith('發生錯誤') %}
-      <div class="error-box">{{ result }}</div>
+    <div class="card-label">第 {{ loop.index }} 張 — 翻譯結果</div>
+    {% if item.result and item.result.startswith('發生錯誤') %}
+      <div class="error-box">{{ item.result }}</div>
     {% else %}
-      <div class="result-text" id="resultText">{{ result }}</div>
-      <button class="copy-btn" onclick="copyResult()" id="copyBtn">
+      <div class="result-text" id="resultText{{ loop.index }}">{{ item.result }}</div>
+      <button class="copy-btn" onclick="copyResult('resultText{{ loop.index }}')">
         <span>📋</span> 複製文字
       </button>
     {% endif %}
   </div>
+  {% endfor %}
 </div>
 {% endif %}
 
@@ -501,13 +502,19 @@ function clearHistory() {
 
 // 頁面載入時，若有新翻譯結果就存進紀錄
 window.addEventListener('DOMContentLoaded', () => {
-  const resultEl = document.getElementById('resultText');
-  const imgEl = document.querySelector('.original-img');
+  const resultEls = document.querySelectorAll('[id^="resultText"]');
+  const imgEls = document.querySelectorAll('.original-img');
 
-  if (resultEl && imgEl) {
+  if (resultEls.length > 0) {
     const list = getHistory();
-    list.unshift({ text: resultEl.innerText, image: imgEl.src, ts: Date.now() });
-    if (list.length > 20) list.pop(); // 最多保留 20 筆
+    resultEls.forEach((el, i) => {
+      list.unshift({
+        text: el.innerText,
+        image: imgEls[i] ? imgEls[i].src : '',
+        ts: Date.now() + i
+      });
+    });
+    while (list.length > 20) list.pop();
     saveHistory(list);
   }
 
@@ -517,9 +524,12 @@ window.addEventListener('DOMContentLoaded', () => {
 function handleFileChange(input) {
   const zone = document.getElementById('uploadZone');
   const nameEl = document.getElementById('fileName');
-  if (input.files && input.files[0]) {
+  if (input.files && input.files.length > 0) {
     zone.classList.add('has-file');
-    nameEl.textContent = '✓ ' + input.files[0].name;
+    const count = input.files.length;
+    nameEl.textContent = count === 1
+      ? `✓ ${input.files[0].name}`
+      : `✓ 已選擇 ${count} 張圖片`;
     nameEl.style.display = 'block';
   }
 }
@@ -534,16 +544,20 @@ function handleSubmit(e) {
   loading.style.display = 'block';
 }
 
-function copyResult() {
-  const text = document.getElementById('resultText').innerText;
+function copyResult(id) {
+  const text = document.getElementById(id).innerText;
   navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('copyBtn');
-    btn.classList.add('copied');
-    btn.innerHTML = '<span>✓</span> 已複製';
-    setTimeout(() => {
-      btn.classList.remove('copied');
-      btn.innerHTML = '<span>📋</span> 複製文字';
-    }, 2000);
+    const btns = document.querySelectorAll('.copy-btn');
+    btns.forEach(btn => {
+      if (btn.getAttribute('onclick') === `copyResult('${id}')`) {
+        btn.classList.add('copied');
+        btn.innerHTML = '<span>✓</span> 已複製';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<span>📋</span> 複製文字';
+        }, 2000);
+      }
+    });
   });
 }
 </script>
@@ -553,20 +567,19 @@ function copyResult() {
 
 @app.route("/", methods=["GET", "POST"])
 def upload_file():
-    result = None
-    image_data_url = None
-    size_info = None
+    results = []
 
     if request.method == "POST":
-        file = request.files["file"]
+        files = request.files.getlist("files")
 
-        if file:
+        for file in files:
+            if not file or not file.filename:
+                continue
+
             filepath = os.path.join(UPLOAD_FOLDER, file.filename)
             file.save(filepath)
 
             original_size = os.path.getsize(filepath)
-
-            # 壓縮圖片再送出
             image_data, mime_type = compress_image(filepath)
             compressed_size = len(image_data)
             size_info = f"{original_size/1024/1024:.1f}MB → {compressed_size/1024:.0f}KB"
@@ -599,13 +612,19 @@ def upload_file():
                     max_tokens=4000
                 )
                 raw = response.choices[0].message.content
-                result = raw if raw else "翻譯結果為空，請重試或換一張圖片。"
+                result = raw if raw else "翻譯結果為空，請重試。"
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
                 print("ERROR:", e)
 
-    return render_template_string(HTML, result=result, image=image_data_url, size_info=size_info)
+            results.append({
+                "image": image_data_url,
+                "result": result,
+                "size_info": size_info
+            })
+
+    return render_template_string(HTML, results=results)
 
 
 if __name__ == "__main__":
