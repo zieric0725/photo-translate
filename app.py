@@ -599,7 +599,18 @@ def upload_file():
                     max_completion_tokens=2000
                 )
                 print("DEBUG RESPONSE:", response)
-                result = response.choices[0].message.content
+                print("DEBUG RESPONSE:", response)
+                raw = response.choices[0].message.content
+                print("DEBUG CONTENT:", repr(raw))
+                if raw:
+                    result = raw
+                else:
+                    # content 是空的，試著從 reasoning 取
+                    try:
+                        result = response.choices[0].message.reasoning_content
+                        print("DEBUG REASONING:", repr(result))
+                    except AttributeError:
+                        result = f"[DEBUG] content 為空，完整回應：\n{str(response)}"
 
             except Exception as e:
                 import traceback
