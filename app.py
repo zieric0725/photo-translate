@@ -605,8 +605,7 @@ def upload_file():
                         try:
                             result = response.output[0].text
                         except (IndexError, AttributeError, TypeError):
-                            result = f"無法解析回應，原始內容：{str(response)}"
-                            print("DEBUG RESPONSE:", response)
+                            result = f"[DEBUG] 無法解析，請把以下內容傳給開發者：\n{str(response)}"
 
             except Exception as e:
                 result = f"發生錯誤：{str(e)}"
