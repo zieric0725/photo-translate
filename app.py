@@ -591,7 +591,7 @@ def upload_file():
                                 },
                                 {
                                     "type": "text",
-                                    "text": "請立即執行以下任務，不可詢問任何問題，直接輸出翻譯結果：\n1. 自動偵測圖片中的語言\n2. 逐字逐句擷取圖片中【所有】文字，包含：標題、正文、小字、標註、備註、頁尾、浮水印、按鈕文字、表格內容\n3. 將所有擷取的文字完整翻譯成繁體中文\n4. 嚴格保持原始排版：段落、條列、編號、表格結構\n5. 無法辨識的文字請標註[?]\n6. 最後加上「---完整翻譯結束---」"
+                                    "text": "請立即執行以下任務，不可詢問任何問題，直接輸出翻譯結果：\n1. 自動偵測圖片中的語言\n2. 擷取圖片中所有文字\n3. 每個項目用「原文 → 繁體中文翻譯」的格式輸出在同一行，例如：「かつおぶし → 木魚花鰹節」\n4. 若有價格或數字請保留，例如：「さしみ 500円 → 生魚片 500円」\n5. 依照原始菜單的分區或段落分組，每組之間空一行\n6. 無法辨識的文字標註[?]\n7. 最後加上「---完整翻譯結束---」"
                                 }
                             ]
                         }
@@ -599,18 +599,11 @@ def upload_file():
                     max_completion_tokens=8000
                 )
                 print("DEBUG RESPONSE:", response)
-                print("DEBUG RESPONSE:", response)
                 raw = response.choices[0].message.content
-                print("DEBUG CONTENT:", repr(raw))
                 if raw:
                     result = raw
                 else:
-                    # content 是空的，試著從 reasoning 取
-                    try:
-                        result = response.choices[0].message.reasoning_content
-                        print("DEBUG REASONING:", repr(result))
-                    except AttributeError:
-                        result = f"[DEBUG] content 為空，完整回應：\n{str(response)}"
+                    result = "翻譯結果為空，請重試或換一張圖片。"
 
             except Exception as e:
                 import traceback
