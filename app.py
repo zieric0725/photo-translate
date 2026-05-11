@@ -371,7 +371,7 @@ HTML = """
     <div class="card-label">選擇圖片</div>
     <div class="upload-zone" id="uploadZone">
       <input type="file" name="files" accept="image/*" required id="fileInput" multiple onchange="handleFileChange(this)">
-      <span class="upload-icon">🖼️</span>
+      <span class="upload-icon">🏞️</span>
       <div class="upload-text">點擊選擇或拍照上傳</div>
       <div class="upload-hint">支援 JPG、PNG、HEIC，可一次選多張</div>
       <div class="upload-filename" id="fileName"></div>
