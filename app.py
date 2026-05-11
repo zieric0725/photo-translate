@@ -576,7 +576,7 @@ def upload_file():
 
             try:
                 response = client.chat.completions.create(
-                    model="gpt-5-nano",
+                    model="gpt-4o-mini",
                     messages=[
                         {
                             "role": "system",
@@ -596,20 +596,14 @@ def upload_file():
                             ]
                         }
                     ],
-                    max_completion_tokens=12000
+                    max_tokens=4000
                 )
-                print("DEBUG RESPONSE:", response)
                 raw = response.choices[0].message.content
-                if raw:
-                    result = raw
-                else:
-                    result = "翻譯結果為空，請重試或換一張圖片。"
+                result = raw if raw else "翻譯結果為空，請重試或換一張圖片。"
 
             except Exception as e:
-                import traceback
-                tb = traceback.format_exc()
-                result = f"發生錯誤：{str(e)}\n\n[DEBUG TRACEBACK]\n{tb}"
-                print("DEBUG ERROR:", tb)
+                result = f"發生錯誤：{str(e)}"
+                print("ERROR:", e)
 
     return render_template_string(HTML, result=result, image=image_data_url, size_info=size_info)
 
