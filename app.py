@@ -575,41 +575,37 @@ def upload_file():
             image_data_url = f"data:{mime_type};base64,{base64_image}"
 
             try:
-                response = client.responses.create(
+                response = client.chat.completions.create(
                     model="gpt-5-nano",
-                    input=[
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "你是一位專業翻譯員。使用者會傳來圖片，你必須立即執行翻譯，不可詢問使用者任何問題，不可要求確認，直接輸出結果。"
+                        },
                         {
                             "role": "user",
                             "content": [
                                 {
-                                    "type": "input_text",
-                                    "text": "你是一位專業翻譯員。請嚴格執行以下任務，絕對不可省略、簡化或跳過任何內容：\n1. 自動偵測圖片中的語言\n2. 逐字逐句擷取圖片中【所有】文字，包含：標題、正文、小字、標註、備註、頁尾、浮水印、按鈕文字、表格內容\n3. 將所有擷取的文字完整翻譯成繁體中文\n4. 嚴格保持原始排版：段落、條列、編號、表格結構\n5. 無法辨識的文字請標註[?]，但絕不可跳過\n6. 翻譯完成後請在最後加上「---完整翻譯結束---」確認已無遺漏"
+                                    "type": "image_url",
+                                    "image_url": {"url": image_data_url}
                                 },
                                 {
-                                    "type": "input_image",
-                                    "image_url": image_data_url
+                                    "type": "text",
+                                    "text": "請立即執行以下任務，不可詢問任何問題，直接輸出翻譯結果：\n1. 自動偵測圖片中的語言\n2. 逐字逐句擷取圖片中【所有】文字，包含：標題、正文、小字、標註、備註、頁尾、浮水印、按鈕文字、表格內容\n3. 將所有擷取的文字完整翻譯成繁體中文\n4. 嚴格保持原始排版：段落、條列、編號、表格結構\n5. 無法辨識的文字請標註[?]\n6. 最後加上「---完整翻譯結束---」"
                                 }
                             ]
                         }
-                    ]
+                    ],
+                    max_tokens=2000
                 )
-                print("DEBUG RESPONSE TYPE:", type(response))
                 print("DEBUG RESPONSE:", response)
-                # 嘗試不同的回傳結構（gpt-5-nano 與舊模型格式不同）
-                try:
-                    result = response.output[0].content[0].text
-                except (IndexError, AttributeError, TypeError):
-                    try:
-                        result = response.output_text
-                    except AttributeError:
-                        try:
-                            result = response.output[0].text
-                        except (IndexError, AttributeError, TypeError):
-                            result = f"[DEBUG] 無法解析，請把以下內容傳給開發者：\n{str(response)}"
+                result = response.choices[0].message.content
 
             except Exception as e:
-                result = f"發生錯誤：{str(e)}"
-                print("DEBUG ERROR:", e)
+                import traceback
+                tb = traceback.format_exc()
+                result = f"發生錯誤：{str(e)}\n\n[DEBUG TRACEBACK]\n{tb}"
+                print("DEBUG ERROR:", tb)
 
     return render_template_string(HTML, result=result, image=image_data_url, size_info=size_info)
 
