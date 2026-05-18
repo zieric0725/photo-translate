@@ -46,8 +46,8 @@ HTML = """
 <meta name="apple-mobile-web-app-title" content="照片翻譯器">
 <meta name="theme-color" content="#A0785A">
 <link rel="manifest" href="/manifest.json">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23A0785A'/><text y='.9em' font-size='80' x='10'>📸</text></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23A0785A'/><text y='.9em' font-size='80' x='10'>📸</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'><rect width='80' height='80' rx='18' fill='%23A0785A'/><rect x='14' y='14' width='38' height='38' rx='8' fill='%23F5EDE6'/><rect x='14' y='14' width='38' height='38' rx='8' fill='none' stroke='%23DEC4B0' stroke-width='1.5'/><circle cx='24' cy='24' r='4' fill='%23DEC4B0'/><path d='M14 42 L24 32 L32 38 L42 28 L52 36' fill='none' stroke='%23A0785A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><rect x='40' y='42' width='26' height='12' rx='6' fill='%237D5C42'/><line x1='44' y1='48' x2='62' y2='48' stroke='%23F5EDE6' stroke-width='2' stroke-linecap='round'/><rect x='40' y='58' width='26' height='12' rx='6' fill='%23DEC4B0'/><line x1='44' y1='64' x2='62' y2='64' stroke='%237D5C42' stroke-width='2' stroke-linecap='round'/></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'><rect width='80' height='80' rx='18' fill='%23A0785A'/><rect x='14' y='14' width='38' height='38' rx='8' fill='%23F5EDE6'/><rect x='14' y='14' width='38' height='38' rx='8' fill='none' stroke='%23DEC4B0' stroke-width='1.5'/><circle cx='24' cy='24' r='4' fill='%23DEC4B0'/><path d='M14 42 L24 32 L32 38 L42 28 L52 36' fill='none' stroke='%23A0785A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><rect x='40' y='42' width='26' height='12' rx='6' fill='%237D5C42'/><line x1='44' y1='48' x2='62' y2='48' stroke='%23F5EDE6' stroke-width='2' stroke-linecap='round'/><rect x='40' y='58' width='26' height='12' rx='6' fill='%23DEC4B0'/><line x1='44' y1='64' x2='62' y2='64' stroke='%237D5C42' stroke-width='2' stroke-linecap='round'/></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -656,7 +656,7 @@ def manifest():
         "orientation": "portrait",
         "icons": [
             {
-                "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23A0785A'/><text y='.9em' font-size='80' x='10'>📸</text></svg>",
+                "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'><rect width='80' height='80' rx='18' fill='%23A0785A'/><rect x='14' y='14' width='38' height='38' rx='8' fill='%23F5EDE6'/><rect x='14' y='14' width='38' height='38' rx='8' fill='none' stroke='%23DEC4B0' stroke-width='1.5'/><circle cx='24' cy='24' r='4' fill='%23DEC4B0'/><path d='M14 42 L24 32 L32 38 L42 28 L52 36' fill='none' stroke='%23A0785A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><rect x='40' y='42' width='26' height='12' rx='6' fill='%237D5C42'/><line x1='44' y1='48' x2='62' y2='48' stroke='%23F5EDE6' stroke-width='2' stroke-linecap='round'/><rect x='40' y='58' width='26' height='12' rx='6' fill='%23DEC4B0'/><line x1='44' y1='64' x2='62' y2='64' stroke='%237D5C42' stroke-width='2' stroke-linecap='round'/></svg>",
                 "sizes": "any",
                 "type": "image/svg+xml"
             }
