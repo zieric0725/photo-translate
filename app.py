@@ -1,4 +1,5 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, Response
+import json
 from openai import OpenAI
 from PIL import Image
 import io
@@ -39,6 +40,12 @@ HTML = """
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>照片翻譯器</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="照片翻譯器">
+<meta name="theme-color" content="#A0785A">
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23A0785A'/><text y='.9em' font-size='80' x='10'>📸</text></svg>">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23A0785A'/><text y='.9em' font-size='80' x='10'>📸</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -566,6 +573,9 @@ function copyResult(id) {
     });
   });
 }
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
 </script>
 </body>
 </html>
@@ -631,6 +641,56 @@ def upload_file():
             })
 
     return render_template_string(HTML, results=results)
+
+
+@app.route("/manifest.json")
+def manifest():
+    data = {
+        "name": "照片翻譯器",
+        "short_name": "翻譯器",
+        "description": "上傳圖片自動翻譯成繁體中文",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#FAF6F2",
+        "theme_color": "#A0785A",
+        "orientation": "portrait",
+        "icons": [
+            {
+                "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23A0785A'/><text y='.9em' font-size='80' x='10'>📸</text></svg>",
+                "sizes": "any",
+                "type": "image/svg+xml"
+            }
+        ]
+    }
+    return Response(json.dumps(data), mimetype="application/json")
+
+
+@app.route("/sw.js")
+def service_worker():
+    sw = """
+const CACHE = 'photo-translate-v1';
+const ASSETS = ['/'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request).catch(() => caches.match(e.request))
+  );
+});
+"""
+    return Response(sw, mimetype="application/javascript")
 
 
 if __name__ == "__main__":
