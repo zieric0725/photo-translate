@@ -39,21 +39,23 @@ HTML = """
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>照片翻譯器</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231A73E8'/><text y='.9em' font-size='80' x='10'>📸</text></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231A73E8'/><text y='.9em' font-size='80' x='10'>📸</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23A0785A'/><text y='.9em' font-size='80' x='10'>📸</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23A0785A'/><text y='.9em' font-size='80' x='10'>📸</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --blue: #cda581;
-    --blue-dark: #1558B0;
-    --bg: #F5F7FA;
+    --primary: #A0785A;
+    --primary-dark: #7D5C42;
+    --primary-light: #F5EDE6;
+    --primary-border: #DEC4B0;
+    --bg: #FAF6F2;
     --card: #FFFFFF;
-    --text: #1C1C1E;
-    --muted: #6B7280;
-    --border: #E5E7EB;
-    --radius: 16px;
+    --text: #3B2A1E;
+    --muted: #9C7E6E;
+    --border: #EAD9CE;
+    --radius: 20px;
   }
 
   body {
@@ -66,14 +68,15 @@ HTML = """
 
   /* ── Header ── */
   .header {
-    background: var(--blue);
-    padding: 20px 20px 28px;
+    background: linear-gradient(135deg, #A0785A 0%, #C49A7A 100%);
+    padding: 24px 20px 32px;
     text-align: center;
-    border-radius: 0 0 28px 28px;
+    border-radius: 0 0 32px 32px;
     margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(160,120,90,0.25);
   }
   .header-icon {
-    font-size: 40px;
+    font-size: 44px;
     display: block;
     margin-bottom: 8px;
   }
@@ -85,8 +88,8 @@ HTML = """
   }
   .header p {
     font-size: 13px;
-    color: rgba(255,255,255,0.75);
-    margin-top: 4px;
+    color: rgba(255,255,255,0.8);
+    margin-top: 5px;
   }
 
   /* ── Card ── */
@@ -96,7 +99,7 @@ HTML = """
     border: 1px solid var(--border);
     margin: 0 16px 20px;
     padding: 20px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 8px rgba(160,120,90,0.08);
   }
   .card-label {
     font-size: 11px;
@@ -109,18 +112,18 @@ HTML = """
 
   /* ── Upload area ── */
   .upload-zone {
-    border: 2px dashed var(--border);
-    border-radius: 12px;
+    border: 2px dashed var(--primary-border);
+    border-radius: 16px;
     padding: 28px 16px;
     text-align: center;
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
     position: relative;
-    background: #FAFAFA;
+    background: var(--primary-light);
   }
   .upload-zone:hover, .upload-zone.has-file {
-    border-color: var(--blue);
-    background: #EEF4FE;
+    border-color: var(--primary);
+    background: #EFE0D4;
   }
   .upload-zone input[type="file"] {
     position: absolute;
@@ -143,7 +146,7 @@ HTML = """
   }
   .upload-filename {
     font-size: 13px;
-    color: var(--blue);
+    color: var(--primary);
     font-weight: 500;
     margin-top: 8px;
     display: none;
@@ -155,21 +158,22 @@ HTML = """
     width: calc(100% - 32px);
     margin: 0 16px 0;
     padding: 16px;
-    background: var(--blue);
+    background: linear-gradient(135deg, #A0785A 0%, #C49A7A 100%);
     color: #fff;
     font-size: 16px;
     font-weight: 700;
     font-family: inherit;
     border: none;
-    border-radius: 14px;
+    border-radius: 20px;
     cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
+    transition: opacity 0.2s, transform 0.1s;
     letter-spacing: 0.3px;
+    box-shadow: 0 4px 12px rgba(160,120,90,0.35);
   }
   .btn:active { transform: scale(0.98); }
-  .btn:hover { background: var(--blue-dark); }
+  .btn:hover { opacity: 0.9; }
   .btn:disabled {
-    background: #93B4E8;
+    opacity: 0.6;
     cursor: not-allowed;
     transform: none;
   }
@@ -180,16 +184,16 @@ HTML = """
     display: none;
   }
   .loading-inner {
-    background: #EEF4FE;
-    border: 1px solid #C7D9F8;
+    background: var(--primary-light);
+    border: 1px solid var(--primary-border);
     border-radius: var(--radius);
     padding: 20px;
     text-align: center;
   }
   .spinner {
     width: 36px; height: 36px;
-    border: 3px solid #C7D9F8;
-    border-top-color: var(--blue);
+    border: 3px solid var(--primary-border);
+    border-top-color: var(--primary);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     margin: 0 auto 12px;
@@ -198,7 +202,7 @@ HTML = """
   .loading-text {
     font-size: 14px;
     font-weight: 500;
-    color: var(--blue);
+    color: var(--primary);
   }
 
   /* ── Result section ── */
@@ -371,7 +375,7 @@ HTML = """
     <div class="card-label">選擇圖片</div>
     <div class="upload-zone" id="uploadZone">
       <input type="file" name="files" accept="image/*" required id="fileInput" multiple onchange="handleFileChange(this)">
-      <span class="upload-icon">🏞️</span>
+      <span class="upload-icon">🖼️</span>
       <div class="upload-text">點擊選擇或拍照上傳</div>
       <div class="upload-hint">支援 JPG、PNG、HEIC，可一次選多張</div>
       <div class="upload-filename" id="fileName"></div>
@@ -394,7 +398,7 @@ HTML = """
   <div class="card">
     <div class="card-label">第 {{ loop.index }} 張 — 原始圖片</div>
     {% if item.size_info %}
-    <div style="font-size:12px; color:#16A34A; background:#F0FDF4; border:1px solid #86EFAC; border-radius:8px; padding:6px 12px; margin-bottom:12px; display:inline-block;">
+    <div style="font-size:12px; color:#7D5C42; background:#F5EDE6; border:1px solid #DEC4B0; border-radius:8px; padding:6px 12px; margin-bottom:12px; display:inline-block;">
       ⚡ 已壓縮：{{ item.size_info }}
     </div>
     {% endif %}
