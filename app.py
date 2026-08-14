@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, Response
+from flask import Flask, request, render_template_string, Response, jsonify
 import json
 from openai import OpenAI
 from PIL import Image
@@ -6,6 +6,8 @@ import io
 import os
 import base64
 import mimetypes
+import threading
+import uuid
 
 from pillow_heif import register_heif_opener
 register_heif_opener()
@@ -32,6 +34,9 @@ client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# 任務儲存（記憶體）
+tasks = {}
 
 HTML = """
 <!doctype html>
@@ -377,7 +382,7 @@ HTML = """
   <p>上傳圖片，自動偵測語言並翻譯成繁體中文</p>
 </div>
 
-<form method="post" enctype="multipart/form-data" onsubmit="handleSubmit(event)" id="mainForm">
+<form id="mainForm" onsubmit="handleSubmit(event)">
   <div class="card">
     <div class="card-label">選擇圖片</div>
     <div class="upload-zone" id="uploadZone">
@@ -399,32 +404,8 @@ HTML = """
   </div>
 </div>
 
-{% if results %}
-<div class="result-section">
-  {% for item in results %}
-  <div class="card">
-    <div class="card-label">第 {{ loop.index }} 張 — 原始圖片</div>
-    {% if item.size_info %}
-    <div style="font-size:12px; color:#7D5C42; background:#F5EDE6; border:1px solid #DEC4B0; border-radius:8px; padding:6px 12px; margin-bottom:12px; display:inline-block;">
-      ⚡ 已壓縮：{{ item.size_info }}
-    </div>
-    {% endif %}
-    <img class="original-img" src="{{ item.image }}" alt="圖片 {{ loop.index }}">
-  </div>
-  <div class="card">
-    <div class="card-label">第 {{ loop.index }} 張 — 翻譯結果</div>
-    {% if item.result and item.result.startswith('發生錯誤') %}
-      <div class="error-box">{{ item.result }}</div>
-    {% else %}
-      <div class="result-text" id="resultText{{ loop.index }}">{{ item.result }}</div>
-      <button class="copy-btn" onclick="copyResult('resultText{{ loop.index }}')">
-        <span>📋</span> 複製文字
-      </button>
-    {% endif %}
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
+<!-- 翻譯結果（由 JS 動態填入）-->
+<div id="resultSection"></div>
 
 <!-- 翻譯紀錄 -->
 <div class="history-section">
@@ -548,13 +529,87 @@ function handleFileChange(input) {
 }
 
 function handleSubmit(e) {
+  e.preventDefault();
   const fileInput = document.getElementById('fileInput');
-  if (!fileInput.files || !fileInput.files[0]) return;
+  if (!fileInput.files || !fileInput.files.length) return;
+
   const btn = document.getElementById('submitBtn');
   const loading = document.getElementById('loadingCard');
   btn.disabled = true;
-  btn.textContent = '翻譯中…';
+  btn.textContent = '上傳中…';
   loading.style.display = 'block';
+
+  const formData = new FormData();
+  for (const file of fileInput.files) {
+    formData.append('files', file);
+  }
+
+  fetch('/upload', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      btn.textContent = '翻譯中…';
+      pollStatus(data.task_id);
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = '開始翻譯';
+      loading.style.display = 'none';
+      alert('上傳失敗，請重試');
+    });
+}
+
+function pollStatus(taskId) {
+  const interval = setInterval(() => {
+    fetch(`/status/${taskId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'done') {
+          clearInterval(interval);
+          showResults(data.results);
+        }
+      })
+      .catch(() => clearInterval(interval));
+  }, 2000);
+}
+
+function showResults(results) {
+  const btn = document.getElementById('submitBtn');
+  const loading = document.getElementById('loadingCard');
+  btn.disabled = false;
+  btn.textContent = '開始翻譯';
+  loading.style.display = 'none';
+
+  const section = document.getElementById('resultSection');
+  section.innerHTML = '';
+
+  results.forEach((item, idx) => {
+    const n = idx + 1;
+    const isError = item.result && item.result.startsWith('發生錯誤');
+    section.innerHTML += `
+      <div class="card">
+        <div class="card-label">第 ${n} 張 — 原始圖片</div>
+        ${item.size_info ? `<div style="font-size:12px;color:#7D5C42;background:#F5EDE6;border:1px solid #DEC4B0;border-radius:8px;padding:6px 12px;margin-bottom:12px;display:inline-block;">⚡ 已壓縮：${item.size_info}</div>` : ''}
+        <img class="original-img" src="${item.image}" alt="圖片 ${n}">
+      </div>
+      <div class="card">
+        <div class="card-label">第 ${n} 張 — 翻譯結果</div>
+        ${isError
+          ? `<div class="error-box">${item.result}</div>`
+          : `<div class="result-text" id="resultText${n}">${item.result}</div>
+             <button class="copy-btn" onclick="copyResult('resultText${n}')"><span>📋</span> 複製文字</button>`
+        }
+      </div>
+    `;
+
+    if (!isError) {
+      const list = getHistory();
+      list.unshift({ text: item.result, image: item.image, ts: Date.now() + idx });
+      while (list.length > 20) list.pop();
+      saveHistory(list);
+    }
+  });
+
+  renderHistory();
 }
 
 function copyResult(id) {
@@ -573,6 +628,7 @@ function copyResult(id) {
     });
   });
 }
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
@@ -581,66 +637,97 @@ if ('serviceWorker' in navigator) {
 </html>
 """
 
-@app.route("/", methods=["GET", "POST"])
-def upload_file():
+def translate_images(task_id, files_data):
+    """背景執行翻譯，結果存到 tasks dict"""
     results = []
+    for item in files_data:
+        image_data_url = item["image_data_url"]
+        size_info = item["size_info"]
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "你是一位專業翻譯員。使用者會傳來圖片，你必須立即執行翻譯，不可詢問使用者任何問題，不可要求確認，直接輸出結果。"
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": image_data_url}
+                            },
+                            {
+                                "type": "text",
+                                "text": "請立即執行以下任務，不可詢問任何問題，直接輸出翻譯結果：\n1. 自動偵測圖片中的語言\n2. 【最重要】逐字擷取圖片中所有文字，絕對不可省略任何項目，包含標題、每一道菜名、價格、小字、備註\n3. 每個項目格式：「原文 → 繁體中文」寫在同一行，價格數字保留，例如：「さしみ 500円 → 生魚片 500円」\n4. 依照原始菜單分區分組，每組之間空一行，並標示區塊標題\n5. 無法辨識的文字標註[?]\n6. 最後加上「---完整翻譯結束---」"
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=4000
+            )
+            raw = response.choices[0].message.content
+            result = raw if raw else "翻譯結果為空，請重試。"
+        except Exception as e:
+            result = f"發生錯誤：{str(e)}"
+            print("ERROR:", e)
 
-    if request.method == "POST":
-        files = request.files.getlist("files")
+        results.append({
+            "image": image_data_url,
+            "result": result,
+            "size_info": size_info
+        })
 
-        for file in files:
-            if not file or not file.filename:
-                continue
+    tasks[task_id] = {"status": "done", "results": results}
 
-            filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-            file.save(filepath)
 
-            original_size = os.path.getsize(filepath)
-            image_data, mime_type = compress_image(filepath)
-            compressed_size = len(image_data)
-            size_info = f"{original_size/1024/1024:.1f}MB → {compressed_size/1024:.0f}KB"
+@app.route("/", methods=["GET"])
+def index():
+    return render_template_string(HTML)
 
-            base64_image = base64.b64encode(image_data).decode("utf-8")
-            image_data_url = f"data:{mime_type};base64,{base64_image}"
 
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-4.1-mini",
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "你是一位專業翻譯員。使用者會傳來圖片，你必須立即執行翻譯，不可詢問使用者任何問題，不可要求確認，直接輸出結果。"
-                        },
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "image_url",
-                                    "image_url": {"url": image_data_url}
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "請立即執行以下任務，不可詢問任何問題，直接輸出翻譯結果：\n1. 自動偵測圖片中的語言\n2. 【最重要】逐字擷取圖片中所有文字，絕對不可省略任何項目，包含標題、每一道菜名、價格、小字、備註\n3. 每個項目格式：「原文 → 繁體中文」寫在同一行，價格數字保留，例如：「さしみ 500円 → 生魚片 500円」\n4. 依照原始菜單分區分組，每組之間空一行，並標示區塊標題\n5. 無法辨識的文字標註[?]\n6. 最後加上「---完整翻譯結束---」"
-                                }
-                            ]
-                        }
-                    ],
-                    max_tokens=4000
-                )
-                raw = response.choices[0].message.content
-                result = raw if raw else "翻譯結果為空，請重試。"
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    files = request.files.getlist("files")
+    files_data = []
 
-            except Exception as e:
-                result = f"發生錯誤：{str(e)}"
-                print("ERROR:", e)
+    for file in files:
+        if not file or not file.filename:
+            continue
 
-            results.append({
-                "image": image_data_url,
-                "result": result,
-                "size_info": size_info
-            })
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
 
-    return render_template_string(HTML, results=results)
+        original_size = os.path.getsize(filepath)
+        image_data, mime_type = compress_image(filepath)
+        compressed_size = len(image_data)
+        size_info = f"{original_size/1024/1024:.1f}MB → {compressed_size/1024:.0f}KB"
+
+        base64_image = base64.b64encode(image_data).decode("utf-8")
+        image_data_url = f"data:{mime_type};base64,{base64_image}"
+
+        files_data.append({
+            "image_data_url": image_data_url,
+            "size_info": size_info
+        })
+
+    # 建立任務 ID，背景執行翻譯
+    task_id = str(uuid.uuid4())
+    tasks[task_id] = {"status": "processing", "results": []}
+    thread = threading.Thread(target=translate_images, args=(task_id, files_data))
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({"task_id": task_id, "count": len(files_data)})
+
+
+@app.route("/status/<task_id>")
+def check_status(task_id):
+    task = tasks.get(task_id)
+    if not task:
+        return jsonify({"status": "not_found"})
+    return jsonify(task)
 
 
 @app.route("/manifest.json")
