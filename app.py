@@ -216,6 +216,68 @@ HTML = """
     font-weight: 500;
     color: var(--primary);
   }
+  .loading-stages {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+    text-align: left;
+  }
+  .stage {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    transition: all 0.3s;
+  }
+  .stage.active {
+    color: var(--primary);
+    background: var(--primary-light);
+    border-color: var(--primary-border);
+    font-weight: 600;
+  }
+  .stage.done {
+    color: #16A34A;
+    background: #F0FDF4;
+    border-color: #86EFAC;
+  }
+  .cancel-btn {
+    margin-top: 14px;
+    padding: 8px 18px;
+    background: none;
+    border: 1px solid #FECACA;
+    border-radius: 10px;
+    color: #B91C1C;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .cancel-btn:hover { background: #FEF2F2; }
+  .error-retry-box {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 0 16px 20px;
+  }
+  .error-retry-box p {
+    color: #B91C1C;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .retry-btn {
+    padding: 9px 20px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
 
   /* ── Result section ── */
   .result-section { margin-top: 28px; }
@@ -400,7 +462,14 @@ HTML = """
 <div class="loading-card" id="loadingCard">
   <div class="loading-inner">
     <div class="spinner"></div>
-    <div class="loading-text">AI 正在分析圖片，請稍候…</div>
+    <div class="loading-text" id="loadingText">上傳中…</div>
+    <div class="loading-stages" id="loadingStages">
+      <div class="stage" id="stage1">📤 上傳中</div>
+      <div class="stage" id="stage2">🔍 辨識文字</div>
+      <div class="stage" id="stage3">🌐 翻譯中</div>
+      <div class="stage" id="stage4">✨ 整理結果</div>
+    </div>
+    <button class="cancel-btn" id="cancelBtn" onclick="cancelTranslation()">取消本次翻譯</button>
   </div>
 </div>
 
@@ -515,6 +584,100 @@ window.addEventListener('DOMContentLoaded', () => {
   renderHistory();
 });
 
+let currentInterval = null;
+let currentTaskId = null;
+let stageTimer = null;
+let cancelled = false;
+
+const STAGES = ['stage1', 'stage2', 'stage3', 'stage4'];
+const STAGE_LABELS = ['📤 上傳中', '🔍 辨識文字', '🌐 翻譯中', '✨ 整理結果'];
+const STAGE_DELAYS = [0, 3000, 8000, 25000]; // 每個階段的預計時間
+const TIMEOUT_MS = 120000; // 2分鐘逾時
+
+function setStage(idx) {
+  STAGES.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (i < idx) {
+      el.className = 'stage done';
+      el.textContent = '✅ ' + STAGE_LABELS[i].slice(3);
+    } else if (i === idx) {
+      el.className = 'stage active';
+      el.textContent = STAGE_LABELS[i];
+    } else {
+      el.className = 'stage';
+      el.textContent = STAGE_LABELS[i];
+    }
+  });
+}
+
+function startStageAnimation() {
+  setStage(0);
+  STAGE_DELAYS.forEach((delay, idx) => {
+    const t = setTimeout(() => {
+      if (!cancelled) setStage(idx);
+    }, delay);
+    // 存起來方便取消
+    if (!window._stageTimers) window._stageTimers = [];
+    window._stageTimers.push(t);
+  });
+}
+
+function clearStageTimers() {
+  (window._stageTimers || []).forEach(t => clearTimeout(t));
+  window._stageTimers = [];
+}
+
+function showLoading() {
+  document.getElementById('loadingCard').style.display = 'block';
+  document.getElementById('cancelBtn').style.display = 'inline-block';
+  document.getElementById('resultSection').innerHTML = '';
+  cancelled = false;
+  startStageAnimation();
+}
+
+function hideLoading() {
+  document.getElementById('loadingCard').style.display = 'none';
+  clearStageTimers();
+}
+
+function cancelTranslation() {
+  cancelled = true;
+  if (currentInterval) clearInterval(currentInterval);
+  hideLoading();
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = false;
+  btn.textContent = '開始翻譯';
+  document.getElementById('resultSection').innerHTML = `
+    <div class="error-retry-box">
+      <p>⚠️ 已取消本次翻譯。</p>
+      <button class="retry-btn" onclick="resetForm()">重新上傳</button>
+    </div>`;
+}
+
+function showError(reason) {
+  hideLoading();
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = false;
+  btn.textContent = '開始翻譯';
+  document.getElementById('resultSection').innerHTML = `
+    <div class="error-retry-box">
+      <p>⚠️ ${reason}</p>
+      <button class="retry-btn" onclick="retryTranslation()">重試一次</button>
+    </div>`;
+}
+
+function resetForm() {
+  document.getElementById('resultSection').innerHTML = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileName').style.display = 'none';
+  document.getElementById('uploadZone').classList.remove('has-file');
+}
+
+function retryTranslation() {
+  document.getElementById('resultSection').innerHTML = '';
+  document.getElementById('submitBtn').click();
+}
+
 function handleFileChange(input) {
   const zone = document.getElementById('uploadZone');
   const nameEl = document.getElementById('fileName');
@@ -534,50 +697,63 @@ function handleSubmit(e) {
   if (!fileInput.files || !fileInput.files.length) return;
 
   const btn = document.getElementById('submitBtn');
-  const loading = document.getElementById('loadingCard');
   btn.disabled = true;
   btn.textContent = '上傳中…';
-  loading.style.display = 'block';
+  showLoading();
 
   const formData = new FormData();
   for (const file of fileInput.files) {
     formData.append('files', file);
   }
 
+  // 設定逾時
+  const timeout = setTimeout(() => {
+    if (currentInterval) clearInterval(currentInterval);
+    showError('翻譯逾時（超過2分鐘），請重試或換一張圖片。');
+  }, TIMEOUT_MS);
+
   fetch('/upload', { method: 'POST', body: formData })
     .then(r => r.json())
     .then(data => {
+      currentTaskId = data.task_id;
       btn.textContent = '翻譯中…';
-      pollStatus(data.task_id);
+      setStage(1);
+      currentInterval = setInterval(() => {
+        if (cancelled) { clearInterval(currentInterval); clearTimeout(timeout); return; }
+        fetch(`/status/${currentTaskId}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.status === 'done') {
+              clearInterval(currentInterval);
+              clearTimeout(timeout);
+              setStage(3);
+              setTimeout(() => {
+                if (!cancelled) showResults(data.results);
+              }, 800);
+            } else if (data.status === 'error') {
+              clearInterval(currentInterval);
+              clearTimeout(timeout);
+              showError(data.message || '翻譯失敗，請重試。');
+            }
+          })
+          .catch(() => {
+            clearInterval(currentInterval);
+            clearTimeout(timeout);
+            showError('網路連線中斷，請確認網路後重試。');
+          });
+      }, 2000);
     })
     .catch(() => {
-      btn.disabled = false;
-      btn.textContent = '開始翻譯';
-      loading.style.display = 'none';
-      alert('上傳失敗，請重試');
+      clearTimeout(timeout);
+      showError('上傳失敗，請確認網路後重試。');
     });
 }
 
-function pollStatus(taskId) {
-  const interval = setInterval(() => {
-    fetch(`/status/${taskId}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === 'done') {
-          clearInterval(interval);
-          showResults(data.results);
-        }
-      })
-      .catch(() => clearInterval(interval));
-  }, 2000);
-}
-
 function showResults(results) {
+  hideLoading();
   const btn = document.getElementById('submitBtn');
-  const loading = document.getElementById('loadingCard');
   btn.disabled = false;
   btn.textContent = '開始翻譯';
-  loading.style.display = 'none';
 
   const section = document.getElementById('resultSection');
   section.innerHTML = '';
@@ -598,8 +774,7 @@ function showResults(results) {
           : `<div class="result-text" id="resultText${n}">${item.result}</div>
              <button class="copy-btn" onclick="copyResult('resultText${n}')"><span>📋</span> 複製文字</button>`
         }
-      </div>
-    `;
+      </div>`;
 
     if (!isError) {
       const list = getHistory();
@@ -680,7 +855,6 @@ def translate_images(task_id, files_data):
         })
 
     tasks[task_id] = {"status": "done", "results": results}
-
 
 @app.route("/", methods=["GET"])
 def index():
