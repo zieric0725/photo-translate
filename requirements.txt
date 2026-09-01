@@ -3,3 +3,5 @@ openai
 pillow
 pillow-heif
 gunicorn
+google-auth
+requests
