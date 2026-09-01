@@ -1,33 +1,101 @@
 from flask import Flask, request, render_template_string, Response, jsonify
 import json
 from openai import OpenAI
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 import io
 import os
 import base64
 import mimetypes
 import threading
 import uuid
+import requests
 
 from pillow_heif import register_heif_opener
 register_heif_opener()
 
-MAX_SIZE = 1600       # 最長邊縮到 1600px
-JPEG_QUALITY = 85     # JPEG 壓縮品質（85% 清晰度夠用，檔案小很多）
+MAX_SIZE = 1600
+JPEG_QUALITY = 85
 
 def compress_image(filepath: str) -> tuple[bytes, str]:
-    """把圖片壓縮後回傳 (bytes, mime_type)"""
+    """壓縮圖片"""
     with Image.open(filepath) as img:
-        # 轉成 RGB（HEIC / PNG with alpha 需要這步）
         if img.mode in ("RGBA", "P", "CMYK"):
             img = img.convert("RGB")
-
-        # 等比例縮小（只縮不放大）
         img.thumbnail((MAX_SIZE, MAX_SIZE), Image.LANCZOS)
-
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True)
         return buf.getvalue(), "image/jpeg"
+
+
+def enhance_image(image_bytes: bytes) -> bytes:
+    """方案二：圖片前處理，提升文字辨識效果"""
+    with Image.open(io.BytesIO(image_bytes)) as img:
+        if img.mode in ("RGBA", "P", "CMYK"):
+            img = img.convert("RGB")
+
+        # 1. 提高對比度（讓文字更清晰）
+        img = ImageEnhance.Contrast(img).enhance(1.4)
+
+        # 2. 提高銳利度（讓模糊的字變清晰）
+        img = ImageEnhance.Sharpness(img).enhance(2.0)
+
+        # 3. 輕微銳化濾鏡
+        img = img.filter(ImageFilter.SHARPEN)
+
+        # 4. 稍微提高亮度（改善光線不均）
+        img = ImageEnhance.Brightness(img).enhance(1.1)
+
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=90)
+        return buf.getvalue()
+
+
+def google_vision_ocr(image_bytes: bytes) -> str:
+    """方案三：用 Google Cloud Vision 辨識圖片文字"""
+    api_key_str = os.environ.get("GOOGLE_VISION_CREDENTIALS", "")
+    if not api_key_str:
+        return None
+
+    try:
+        # 解析 JSON 憑證取得 access token
+        import google.auth
+        import google.auth.transport.requests
+        from google.oauth2 import service_account
+
+        creds_dict = json.loads(api_key_str)
+        credentials = service_account.Credentials.from_service_account_info(
+            creds_dict,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        auth_req = google.auth.transport.requests.Request()
+        credentials.refresh(auth_req)
+        access_token = credentials.token
+
+        # 呼叫 Vision API
+        b64_image = base64.b64encode(image_bytes).decode("utf-8")
+        payload = {
+            "requests": [{
+                "image": {"content": b64_image},
+                "features": [{"type": "DOCUMENT_TEXT_DETECTION"}]
+            }]
+        }
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        resp = requests.post(
+            "https://vision.googleapis.com/v1/images:annotate",
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+        data = resp.json()
+        text = data["responses"][0].get("fullTextAnnotation", {}).get("text", "")
+        return text if text else None
+
+    except Exception as e:
+        print("Google Vision ERROR:", e)
+        return None
 
 app = Flask(__name__)
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -817,33 +885,64 @@ def translate_images(task_id, files_data):
     results = []
     for item in files_data:
         image_data_url = item["image_data_url"]
+        image_bytes = item["image_bytes"]
         size_info = item["size_info"]
         try:
-            response = client.chat.completions.create(
-                model="gpt-4.1-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "你是一位專業翻譯員。使用者會傳來圖片，你必須立即執行翻譯，不可詢問使用者任何問題，不可要求確認，直接輸出結果。"
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": image_data_url}
-                            },
-                            {
-                                "type": "text",
-                                "text": "請立即執行以下任務，不可詢問任何問題，直接輸出翻譯結果：\n1. 自動偵測圖片中的語言\n2. 【最重要】逐字擷取圖片中所有文字，絕對不可省略任何項目，包含標題、每一道菜名、價格、小字、備註\n3. 每個項目格式：「原文 → 繁體中文」寫在同一行，價格數字保留，例如：「さしみ 500円 → 生魚片 500円」\n4. 依照原始菜單分區分組，每組之間空一行，並標示區塊標題\n5. 無法辨識的文字標註[?]\n6. 最後加上「---完整翻譯結束---」"
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=4000
-            )
+            # 方案二：圖片前處理（提升辨識率）
+            enhanced_bytes = enhance_image(image_bytes)
+
+            # 方案三：先用 Google Vision OCR 辨識文字
+            ocr_text = google_vision_ocr(enhanced_bytes)
+
+            if ocr_text:
+                # OCR 成功 → 只用 GPT 翻譯文字（不需要看圖）
+                print(f"Google Vision OCR 成功，文字長度：{len(ocr_text)}")
+                response = client.chat.completions.create(
+                    model="gpt-4.1-mini",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "你是一位專業翻譯員。請將以下文字翻譯成繁體中文，不可省略任何內容，直接輸出結果。"
+                        },
+                        {
+                            "role": "user",
+                            "content": f"以下是從圖片辨識出的文字，請完整翻譯成繁體中文：\n\n每個項目格式：「原文 → 繁體中文」寫在同一行，價格數字保留\n依照原始分區分組，每組之間空一行\n無法判斷的文字標註[?]\n最後加上「---完整翻譯結束---」\n\n辨識文字：\n{ocr_text}"
+                        }
+                    ],
+                    max_tokens=4000
+                )
+            else:
+                # OCR 失敗 → 退回用 GPT 直接看圖翻譯
+                print("Google Vision OCR 無結果，改用 GPT 視覺翻譯")
+                enhanced_b64 = base64.b64encode(enhanced_bytes).decode("utf-8")
+                enhanced_data_url = f"data:image/jpeg;base64,{enhanced_b64}"
+                response = client.chat.completions.create(
+                    model="gpt-4.1-mini",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "你是一位專業翻譯員。使用者會傳來圖片，你必須立即執行翻譯，不可詢問使用者任何問題，不可要求確認，直接輸出結果。"
+                        },
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": enhanced_data_url}
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "請立即執行以下任務，不可詢問任何問題，直接輸出翻譯結果：\n1. 自動偵測圖片中的語言\n2. 【最重要】逐字擷取圖片中所有文字，絕對不可省略任何項目，包含標題、每一道菜名、價格、小字、備註\n3. 每個項目格式：「原文 → 繁體中文」寫在同一行，價格數字保留\n4. 依照原始菜單分區分組，每組之間空一行\n5. 無法辨識的文字標註[?]\n6. 最後加上「---完整翻譯結束---」"
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens=4000
+                )
+
             raw = response.choices[0].message.content
             result = raw if raw else "翻譯結果為空，請重試。"
+
         except Exception as e:
             result = f"發生錯誤：{str(e)}"
             print("ERROR:", e)
@@ -883,6 +982,7 @@ def upload_file():
 
         files_data.append({
             "image_data_url": image_data_url,
+            "image_bytes": image_data,
             "size_info": size_info
         })
 
