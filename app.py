@@ -52,7 +52,13 @@ def enhance_image(image_bytes: bytes) -> bytes:
 
 def google_vision_ocr(image_bytes: bytes) -> str:
     """方案三：用 Google Cloud Vision 辨識圖片文字"""
+    # Debug：印出所有環境變數名稱
+    env_keys = [k for k in os.environ.keys()]
+    print(f"所有環境變數：{env_keys}")
+
     api_key_str = os.environ.get("GOOGLE_VISION_CREDENTIALS", "")
+    print(f"GOOGLE_VISION_CREDENTIALS 長度：{len(api_key_str)}")
+
     if not api_key_str:
         print("Google Vision: 找不到 GOOGLE_VISION_CREDENTIALS 環境變數")
         return None
