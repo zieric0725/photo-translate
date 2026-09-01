@@ -380,6 +380,38 @@ HTML = """
     white-space: pre-wrap;
     word-break: break-word;
   }
+  .result-text-bilingual {
+    font-size: 15px;
+    line-height: 1.8;
+    word-break: break-word;
+  }
+  .bilingual-block {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .bilingual-block:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+  .bilingual-original {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 3px;
+  }
+  .bilingual-translation {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.7;
+  }
+  .bilingual-end {
+    font-size: 12px;
+    color: #16A34A;
+    margin-top: 12px;
+    text-align: center;
+  }
 
   /* ── Copy button ── */
   .copy-btn {
@@ -857,7 +889,7 @@ function showResults(results) {
         <div class="card-label">第 ${n} 張 — 翻譯結果</div>
         ${isError
           ? `<div class="error-box">${item.result}</div>`
-          : `<div class="result-text" id="resultText${n}">${item.result}</div>
+          : `<div id="resultText${n}">${renderBilingual(item.result)}</div>
              <button class="copy-btn" onclick="copyResult('resultText${n}')"><span>📋</span> 複製文字</button>`
         }
       </div>`;
@@ -873,7 +905,48 @@ function showResults(results) {
   renderHistory();
 }
 
-function copyResult(id) {
+function renderBilingual(text) {
+  // 把翻譯結果渲染成上下對照格式
+  const lines = text.split('\n');
+  let html = '<div class="result-text-bilingual">';
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i].trim();
+
+    // 跳過結束標記
+    if (line === '---完整翻譯結束---') {
+      html += '<div class="bilingual-end">✅ 完整翻譯結束</div>';
+      i++;
+      continue;
+    }
+
+    // 空行 → 分隔區塊
+    if (line === '') {
+      i++;
+      continue;
+    }
+
+    // 判斷下一行是否為翻譯（非空）
+    const nextLine = (lines[i + 1] || '').trim();
+    if (nextLine && nextLine !== '---完整翻譯結束---') {
+      html += `<div class="bilingual-block">
+        <div class="bilingual-original">${line}</div>
+        <div class="bilingual-translation">${nextLine}</div>
+      </div>`;
+      i += 2;
+    } else {
+      // 只有一行（標題或區塊名稱）
+      html += `<div class="bilingual-block">
+        <div class="bilingual-translation">${line}</div>
+      </div>`;
+      i++;
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
   const text = document.getElementById(id).innerText;
   navigator.clipboard.writeText(text).then(() => {
     const btns = document.querySelectorAll('.copy-btn');
@@ -924,7 +997,27 @@ def translate_images(task_id, files_data):
                         },
                         {
                             "role": "user",
-                            "content": f"以下是從圖片辨識出的文字，請完整翻譯成繁體中文：\n\n每個項目格式：「原文 → 繁體中文」寫在同一行，價格數字保留\n依照原始分區分組，每組之間空一行\n無法判斷的文字標註[?]\n最後加上「---完整翻譯結束---」\n\n辨識文字：\n{ocr_text}"
+                            "content": f"""以下是從圖片辨識出的文字，請依照原始分區分組，用上下對照格式輸出：
+
+格式規則：
+- 每個區塊先顯示原文，下一行顯示繁體中文翻譯
+- 原文和翻譯之間不加任何符號，直接換行
+- 每個區塊之間空一行
+- 價格數字保留
+- 無法判斷的文字標註[?]
+- 最後加上「---完整翻譯結束---」
+
+範例格式：
+さしみ 500円
+生魚片 500円
+
+トッピング
+配料
+キムチ
+泡菜
+
+辨識文字：
+{ocr_text}"""
                         }
                     ],
                     max_tokens=4000
@@ -950,7 +1043,7 @@ def translate_images(task_id, files_data):
                                 },
                                 {
                                     "type": "text",
-                                    "text": "請立即執行以下任務，不可詢問任何問題，直接輸出翻譯結果：\n1. 自動偵測圖片中的語言\n2. 【最重要】逐字擷取圖片中所有文字，絕對不可省略任何項目，包含標題、每一道菜名、價格、小字、備註\n3. 每個項目格式：「原文 → 繁體中文」寫在同一行，價格數字保留\n4. 依照原始菜單分區分組，每組之間空一行\n5. 無法辨識的文字標註[?]\n6. 最後加上「---完整翻譯結束---」"
+                                    "text": "請立即執行以下任務，不可詢問任何問題，直接輸出翻譯結果：\n1. 自動偵測圖片中的語言\n2. 【最重要】逐字擷取圖片中所有文字，絕對不可省略任何項目\n3. 用上下對照格式輸出：原文在上，繁體中文翻譯在下，直接換行不加符號\n4. 每個區塊之間空一行，價格數字保留\n範例：\nさしみ 500円\n生魚片 500円\n\nトッピング\n配料\n5. 無法辨識的文字標註[?]\n6. 最後加上「---完整翻譯結束---」"
                                 }
                             ]
                         }
