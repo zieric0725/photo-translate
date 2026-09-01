@@ -606,7 +606,7 @@ HTML = """
 </div>
 
 <script>
-// ── 翻譯紀錄（存在 sessionStorage，關閉分頁即清除）──
+{% raw %}
 
 const HISTORY_KEY = 'translate_history';
 
@@ -968,6 +968,7 @@ function copyResult(id) {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
+{% endraw %}
 </script>
 </body>
 </html>
