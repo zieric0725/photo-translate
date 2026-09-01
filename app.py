@@ -947,6 +947,8 @@ function renderBilingual(text) {
   html += '</div>';
   return html;
 }
+
+function copyResult(id) {
   const text = document.getElementById(id).innerText;
   navigator.clipboard.writeText(text).then(() => {
     const btns = document.querySelectorAll('.copy-btn');
