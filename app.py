@@ -607,6 +607,7 @@ HTML = """
 
 <script>
 {% raw %}
+console.log('JS 載入成功');
 
 const HISTORY_KEY = 'translate_history';
 
@@ -797,6 +798,7 @@ function retryTranslation() {
 }
 
 function handleFileChange(input) {
+  console.log('handleFileChange 被呼叫', input.files);
   const zone = document.getElementById('uploadZone');
   const nameEl = document.getElementById('fileName');
   if (input.files && input.files.length > 0) {
