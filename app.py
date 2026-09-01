@@ -54,24 +54,25 @@ def google_vision_ocr(image_bytes: bytes) -> str:
     """方案三：用 Google Cloud Vision 辨識圖片文字"""
     api_key_str = os.environ.get("GOOGLE_VISION_CREDENTIALS", "")
     if not api_key_str:
+        print("Google Vision: 找不到 GOOGLE_VISION_CREDENTIALS 環境變數")
         return None
 
     try:
-        # 解析 JSON 憑證取得 access token
         import google.auth
         import google.auth.transport.requests
         from google.oauth2 import service_account
 
         creds_dict = json.loads(api_key_str)
+        print(f"Google Vision: 憑證載入成功，project_id={creds_dict.get('project_id')}")
+
         credentials = service_account.Credentials.from_service_account_info(
             creds_dict,
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
         auth_req = google.auth.transport.requests.Request()
         credentials.refresh(auth_req)
-        access_token = credentials.token
+        print("Google Vision: Token 取得成功")
 
-        # 呼叫 Vision API
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
         payload = {
             "requests": [{
@@ -80,7 +81,7 @@ def google_vision_ocr(image_bytes: bytes) -> str:
             }]
         }
         headers = {
-            "Authorization": f"Bearer {access_token}",
+            "Authorization": f"Bearer {credentials.token}",
             "Content-Type": "application/json"
         }
         resp = requests.post(
@@ -89,12 +90,23 @@ def google_vision_ocr(image_bytes: bytes) -> str:
             headers=headers,
             timeout=30
         )
+        print(f"Google Vision: API 回應狀態碼 {resp.status_code}")
         data = resp.json()
+
+        if "error" in data:
+            print(f"Google Vision API 錯誤: {data['error']}")
+            return None
+
+        if not data.get("responses"):
+            print("Google Vision: responses 為空")
+            return None
+
         text = data["responses"][0].get("fullTextAnnotation", {}).get("text", "")
+        print(f"Google Vision: 辨識文字長度 {len(text)}")
         return text if text else None
 
     except Exception as e:
-        print("Google Vision ERROR:", e)
+        print(f"Google Vision 例外錯誤: {type(e).__name__}: {e}")
         return None
 
 app = Flask(__name__)
