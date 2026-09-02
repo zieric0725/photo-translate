@@ -606,8 +606,7 @@ HTML = """
 </div>
 
 <script>
-{% raw %}
-console.log('JS 載入成功');
+// ── 翻譯紀錄（存在 sessionStorage，關閉分頁即清除）──
 
 const HISTORY_KEY = 'translate_history';
 
@@ -644,21 +643,20 @@ function renderHistory() {
   list.forEach((item, idx) => {
     const div = document.createElement('div');
     div.className = 'history-item';
-    div.innerHTML = `
-      <div class="history-item-header" onclick="toggleItem(${idx})">
-        <img class="history-thumb" src="${item.image}" alt="縮圖">
-        <div class="history-meta">
-          <div class="history-time">${formatTime(item.ts)}</div>
-          <div class="history-preview">${item.text.slice(0, 40)}…</div>
-        </div>
-        <span class="history-chevron" id="chev-${idx}">▼</span>
-      </div>
-      <div class="history-body" id="body-${idx}">
-        <img class="history-full-img" src="${item.image}" alt="原圖">
-        <div class="history-full-text">${item.text}</div>
-        <button class="history-copy-btn" onclick="copyHistory(${idx})">📋 複製</button>
-      </div>
-    `;
+    div.innerHTML =
+      '<div class="history-item-header" onclick="toggleItem(' + idx + ')">' +
+      '<img class="history-thumb" src="' + item.image + '" alt="縮圖">' +
+      '<div class="history-meta">' +
+      '<div class="history-time">' + formatTime(item.ts) + '</div>' +
+      '<div class="history-preview">' + item.text.slice(0, 40) + '…</div>' +
+      '</div>' +
+      '<span class="history-chevron" id="chev-' + idx + '">▼</span>' +
+      '</div>' +
+      '<div class="history-body" id="body-' + idx + '">' +
+      '<img class="history-full-img" src="' + item.image + '" alt="原圖">' +
+      '<div class="history-full-text">' + item.text + '</div>' +
+      '<button class="history-copy-btn" onclick="copyHistory(' + idx + ')">📋 複製</button>' +
+      '</div>';
     container.appendChild(div);
   });
 }
@@ -766,11 +764,9 @@ function cancelTranslation() {
   const btn = document.getElementById('submitBtn');
   btn.disabled = false;
   btn.textContent = '開始翻譯';
-  document.getElementById('resultSection').innerHTML = `
-    <div class="error-retry-box">
-      <p>⚠️ 已取消本次翻譯。</p>
-      <button class="retry-btn" onclick="resetForm()">重新上傳</button>
-    </div>`;
+  document.getElementById('resultSection').innerHTML =
+    '<div class="error-retry-box"><p>⚠️ 已取消本次翻譯。</p>' +
+    '<button class="retry-btn" onclick="resetForm()">重新上傳</button></div>';
 }
 
 function showError(reason) {
@@ -778,11 +774,9 @@ function showError(reason) {
   const btn = document.getElementById('submitBtn');
   btn.disabled = false;
   btn.textContent = '開始翻譯';
-  document.getElementById('resultSection').innerHTML = `
-    <div class="error-retry-box">
-      <p>⚠️ ${reason}</p>
-      <button class="retry-btn" onclick="retryTranslation()">重試一次</button>
-    </div>`;
+  document.getElementById('resultSection').innerHTML =
+    '<div class="error-retry-box"><p>⚠️ ' + reason + '</p>' +
+    '<button class="retry-btn" onclick="retryTranslation()">重試一次</button></div>';
 }
 
 function resetForm() {
@@ -881,20 +875,20 @@ function showResults(results) {
   results.forEach((item, idx) => {
     const n = idx + 1;
     const isError = item.result && item.result.startsWith('發生錯誤');
-    section.innerHTML += `
-      <div class="card">
-        <div class="card-label">第 ${n} 張 — 原始圖片</div>
-        ${item.size_info ? `<div style="font-size:12px;color:#7D5C42;background:#F5EDE6;border:1px solid #DEC4B0;border-radius:8px;padding:6px 12px;margin-bottom:12px;display:inline-block;">⚡ 已壓縮：${item.size_info}</div>` : ''}
-        <img class="original-img" src="${item.image}" alt="圖片 ${n}">
-      </div>
-      <div class="card">
-        <div class="card-label">第 ${n} 張 — 翻譯結果</div>
-        ${isError
-          ? `<div class="error-box">${item.result}</div>`
-          : `<div id="resultText${n}">${renderBilingual(item.result)}</div>
-             <button class="copy-btn" onclick="copyResult('resultText${n}')"><span>📋</span> 複製文字</button>`
-        }
-      </div>`;
+    const sizeInfo = item.size_info
+      ? '<div style="font-size:12px;color:#7D5C42;background:#F5EDE6;border:1px solid #DEC4B0;border-radius:8px;padding:6px 12px;margin-bottom:12px;display:inline-block;">⚡ 已壓縮：' + item.size_info + '</div>'
+      : '';
+    const resultHtml = isError
+      ? '<div class="error-box">' + item.result + '</div>'
+      : '<div id="resultText' + n + '">' + renderBilingual(item.result) + '</div>' +
+        '<button class="copy-btn" onclick="copyResult(\'resultText' + n + '\')"><span>📋</span> 複製文字</button>';
+
+    section.innerHTML +=
+      '<div class="card"><div class="card-label">第 ' + n + ' 張 — 原始圖片</div>' +
+      sizeInfo +
+      '<img class="original-img" src="' + item.image + '" alt="圖片 ' + n + '"></div>' +
+      '<div class="card"><div class="card-label">第 ' + n + ' 張 — 翻譯結果</div>' +
+      resultHtml + '</div>';
 
     if (!isError) {
       const list = getHistory();
@@ -970,7 +964,6 @@ function copyResult(id) {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
-{% endraw %}
 </script>
 </body>
 </html>
