@@ -881,7 +881,7 @@ function showResults(results) {
     const resultHtml = isError
       ? '<div class="error-box">' + item.result + '</div>'
       : '<div id="resultText' + n + '">' + renderBilingual(item.result) + '</div>' +
-        '<button class="copy-btn" onclick="copyResult(\'resultText' + n + '\')"><span>📋</span> 複製文字</button>';
+        '<button class="copy-btn" onclick="copyResult(&quot;resultText' + n + '&quot;)"><span>📋</span> 複製文字</button>';
 
     section.innerHTML +=
       '<div class="card"><div class="card-label">第 ' + n + ' 張 — 原始圖片</div>' +
@@ -949,7 +949,7 @@ function copyResult(id) {
   navigator.clipboard.writeText(text).then(() => {
     const btns = document.querySelectorAll('.copy-btn');
     btns.forEach(btn => {
-      if (btn.getAttribute('onclick') === "copyResult('" + id + "')") {
+      if (btn.getAttribute('onclick') === 'copyResult(&quot;' + id + '&quot;)') {
         btn.classList.add('copied');
         btn.innerHTML = '<span>✓</span> 已複製';
         setTimeout(() => {
