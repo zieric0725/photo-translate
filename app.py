@@ -623,7 +623,7 @@ function formatTime(ts) {
   const d = new Date(ts);
   const h = String(d.getHours()).padStart(2,'0');
   const m = String(d.getMinutes()).padStart(2,'0');
-  return `今天 ${h}:${m}`;
+  return '今天 ' + h + ':' + m;
 }
 
 function renderHistory() {
@@ -662,8 +662,8 @@ function renderHistory() {
 }
 
 function toggleItem(idx) {
-  const body = document.getElementById(`body-${idx}`);
-  const chev = document.getElementById(`chev-${idx}`);
+  const body = document.getElementById('body-' + idx);
+  const chev = document.getElementById('chev-' + idx);
   body.classList.toggle('open');
   chev.classList.toggle('open');
 }
@@ -799,8 +799,8 @@ function handleFileChange(input) {
     zone.classList.add('has-file');
     const count = input.files.length;
     nameEl.textContent = count === 1
-      ? `✓ ${input.files[0].name}`
-      : `✓ 已選擇 ${count} 張圖片`;
+      ? '✓ ' + input.files[0].name
+      : '✓ 已選擇 ' + count + ' 張圖片';
     nameEl.style.display = 'block';
   }
 }
@@ -834,7 +834,7 @@ function handleSubmit(e) {
       setStage(1);
       currentInterval = setInterval(() => {
         if (cancelled) { clearInterval(currentInterval); clearTimeout(timeout); return; }
-        fetch(`/status/${currentTaskId}`)
+        fetch('/status/' + currentTaskId)
           .then(r => r.json())
           .then(data => {
             if (data.status === 'done') {
@@ -926,16 +926,16 @@ function renderBilingual(text) {
     // 判斷下一行是否為翻譯（非空）
     const nextLine = (lines[i + 1] || '').trim();
     if (nextLine && nextLine !== '---完整翻譯結束---') {
-      html += `<div class="bilingual-block">
-        <div class="bilingual-original">${line}</div>
-        <div class="bilingual-translation">${nextLine}</div>
-      </div>`;
+      html += '<div class="bilingual-block">' +
+        '<div class="bilingual-original">' + line + '</div>' +
+        '<div class="bilingual-translation">' + nextLine + '</div>' +
+        '</div>';
       i += 2;
     } else {
       // 只有一行（標題或區塊名稱）
-      html += `<div class="bilingual-block">
-        <div class="bilingual-translation">${line}</div>
-      </div>`;
+      html += '<div class="bilingual-block">' +
+        '<div class="bilingual-translation">' + line + '</div>' +
+        '</div>';
       i++;
     }
   }
@@ -949,7 +949,7 @@ function copyResult(id) {
   navigator.clipboard.writeText(text).then(() => {
     const btns = document.querySelectorAll('.copy-btn');
     btns.forEach(btn => {
-      if (btn.getAttribute('onclick') === `copyResult('${id}')`) {
+      if (btn.getAttribute('onclick') === "copyResult('" + id + "')") {
         btn.classList.add('copied');
         btn.innerHTML = '<span>✓</span> 已複製';
         setTimeout(() => {
