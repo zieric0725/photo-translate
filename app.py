@@ -903,7 +903,7 @@ function showResults(results) {
 
 function renderBilingual(text) {
   // 把翻譯結果渲染成上下對照格式
-  const lines = text.split('\n');
+  const lines = text.split('\\n');
   let html = '<div class="result-text-bilingual">';
   let i = 0;
 
